@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+// This defines where the generated Go code will live
+option go_package = "github.com/kisna/archon/internal/pb";
+
+package archon.manifest.v1;
+
+// ---------------------------------------------------------
+// 1. Core Data Structures (The "Lego Bricks")
+// ---------------------------------------------------------
+
+message Metadata {
+  string project_name = 1;
+  string target_cloud = 2; // e.g., "AWS", "Vercel", "GCP"
+  string schema_version = 3; // Crucial for backwards compatibility
+}
+
+message ArchitectureNode {
+  string id = 1;           // e.g., "auth_service"
+  string type = 2;         // e.g., "clerk", "postgres", "redis"
+  string version = 3;      // e.g., "1.2.0"
+  map<string, string> config = 4; // Key-value pairs for env vars or settings
+}
+
+message Connection {
+  string source_id = 1;    // e.g., "api_gateway"
+  string target_id = 2;    // e.g., "postgres_db"
+  string protocol = 3;     // e.g., "gRPC", "TCP", "HTTP"
+}
+
+// The Main Source of Truth
+message ProjectManifest {
+  Metadata metadata = 1;
+  repeated ArchitectureNode nodes = 2;
+  repeated Connection connections = 3;
+  repeated string feature_flags = 4;
+}
+
+// ---------------------------------------------------------
+// 2. gRPC Service Definitions
+// ---------------------------------------------------------
+
+// The request sent from the Go Gateway -> Python AI Brain
+message RefineManifestRequest {
+  string trace_id = 1;         // For OpenTelemetry tracking
+  string user_id = 2;          // For Auth/Audit logging
+  string user_prompt = 3;      // e.g., "Swap my DB to MongoDB"
+  ProjectManifest current_manifest = 4; 
+}
+
+// The response sent from Python AI Brain -> Go Gateway
+message RefineManifestResponse {
+  string trace_id = 1;
+  bool is_valid = 2;
+  string ai_reasoning = 3;     // Explanation to show on the UI
+  ProjectManifest updated_manifest = 4;
+}
+
+// The actual service the Python Brain will run
+service ArchitectBrain {
+  // Sync call: Quickly updates the manifest based on user chat
+  rpc RefineManifest(RefineManifestRequest) returns (RefineManifestResponse);
+}

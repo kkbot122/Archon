@@ -1,0 +1,5 @@
+grpcio==1.62.1
+grpcio-tools==1.62.1
+langgraph==0.0.26
+langchain-google-genai==1.0.1
+pydantic==2.6.3
