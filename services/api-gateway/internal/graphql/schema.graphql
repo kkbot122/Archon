@@ -1,0 +1,35 @@
+# services/api-gateway/internal/graphql/schema.graphql
+
+type Project {
+  id: ID!
+  name: String!
+}
+
+type ManifestRecord {
+  id: ID!
+  projectId: ID!
+  versionHash: String!
+  manifestData: String! # The raw JSON string sent to the UI
+}
+
+type RefineResponse {
+  isValid: Boolean!
+  reasoning: String!
+  manifest: ManifestRecord # Will be null if isValid is false
+}
+
+type Query {
+  # Fetches the current architecture state for the UI Canvas
+  getLatestManifest(projectId: ID!): ManifestRecord
+}
+
+type Mutation {
+  # Starts a new blank canvas
+  createProject(name: String!): Project!
+  
+  # The magic endpoint: Sends user chat to the AI and updates the Canvas
+  refineArchitecture(projectId: ID!, prompt: String!): RefineResponse!
+
+  # NEW: Triggers the background build pipeline
+  shipProject(projectId: ID!): Boolean!
+}
