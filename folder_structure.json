@@ -1,0 +1,234 @@
+{
+  "name": "Archon",
+  "path": "c:\\Users\\kisna\\OneDrive\\Desktop\\Archon",
+  "type": "directory",
+  "children": [
+    {
+      "name": "Archon",
+      "type": "folder",
+      "children": [
+        {
+          "name": "atomic-library",
+          "type": "folder",
+          "children": [
+            {
+              "name": "bricks",
+              "type": "folder"
+            },
+            {
+              "name": "index.json",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "deploy",
+          "type": "folder",
+          "children": [
+            {
+              "name": "docker",
+              "type": "folder"
+            },
+            {
+              "name": "terraform",
+              "type": "folder"
+            }
+          ]
+        },
+        {
+          "name": "internal",
+          "type": "folder",
+          "children": [
+            {
+              "name": "kafka",
+              "type": "folder"
+            },
+            {
+              "name": "logger",
+              "type": "folder"
+            },
+            {
+              "name": "telemetry",
+              "type": "folder"
+            },
+            {
+              "name": "go.mod",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "proto",
+          "type": "folder",
+          "children": [
+            {
+              "name": "manifest.proto",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "services",
+          "type": "folder",
+          "children": [
+            {
+              "name": "ai-brain",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "src",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "consumers",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "graph",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "grpcserver",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "llm",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "main.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "worker.py",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "tests",
+                  "type": "folder"
+                },
+                {
+                  "name": "requirements.txt",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "api-gateway",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "cmd",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "server",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "main.go",
+                          "type": "file"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "internal",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "db",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "graphql",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "grpcclient",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "ws",
+                      "type": "folder"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "stitcher",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "cmd",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "worker",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "main.go",
+                          "type": "file"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "internal",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "builder",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "consumer",
+                      "type": "folder"
+                    },
+                    {
+                      "name": "docker",
+                      "type": "folder"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": ".gitignore",
+          "type": "file"
+        },
+        {
+          "name": "Makefile",
+          "type": "file"
+        },
+        {
+          "name": "README.md",
+          "type": "file"
+        },
+        {
+          "name": "docker-compose.yml",
+          "type": "file"
+        },
+        {
+          "name": "go.work",
+          "type": "file"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "generated": "2026-05-05T12:58:11.244Z",
+    "generator": "FileTree Pro Extension",
+    "version": "0.2.0",
+    "showIcons": false,
+    "maxDepth": 10
+  }
+}
