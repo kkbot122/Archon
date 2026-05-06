@@ -5,6 +5,7 @@ import (
 	"github.com/kisna/archon/internal/kafka"
 	"github.com/kisna/archon/services/api-gateway/internal/db"
 	"github.com/kisna/archon/services/api-gateway/internal/grpcclient"
+	"github.com/kisna/archon/services/api-gateway/internal/ws"
 )
 
 // This file will not be regenerated automatically.
@@ -14,4 +15,5 @@ type Resolver struct {
 	DB *db.Repository
 	AI *grpcclient.ArchitectClient
 	Kafka  *kafka.Producer
+	Redis *ws.RedisManager
 }

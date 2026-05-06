@@ -20,7 +20,7 @@ func NewProducer(brokerURL string, topic string) *Producer {
 		Addr:     kafka.TCP(brokerURL),
 		Topic:    topic,
 		// LeastBytes ensures messages are distributed evenly across partitions
-		Balancer: &kafka.LeastBytes{}, 
+		Balancer: &kafka.Hash{}, 
 		AllowAutoTopicCreation: true,
 	}
 	return &Producer{writer: w}

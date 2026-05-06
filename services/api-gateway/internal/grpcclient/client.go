@@ -4,80 +4,60 @@ package grpcclient
 import (
 	"context"
 	"fmt"
+	"time"
 
-	// Import the protobuf code we generated earlier
 	"github.com/kisna/archon/internal/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/grpc/keepalive"
 )
 
-// ArchitectClient wraps the gRPC connection to the AI Brain
 type ArchitectClient struct {
-	conn *grpc.ClientConn
-	api  pb.ArchitectBrainClient
+	conn   *grpc.ClientConn
+	client pb.ArchitectBrainClient // explicitly named 'client' now
 }
 
-// NewClient establishes a connection to the Python gRPC server
-func NewClient(targetURL string) (*ArchitectClient, error) {
-	// We use "insecure" credentials here because this will be a local Docker-to-Docker
-	// internal network connection. Production over the open internet would require TLS.
-	conn, err := grpc.Dial(targetURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial AI Brain: %w", err)
+func NewClient(target string) (*ArchitectClient, error) {
+	// Configure Keepalive parameters
+	kacp := keepalive.ClientParameters{
+		Time:                10 * time.Second, // Send pings every 10s if idle
+		Timeout:             3 * time.Second,  // Wait 3s for ping ack before declaring dead
+		PermitWithoutStream: true,             // Send pings even without active RPCs
 	}
 
+	conn, err := grpc.NewClient(target, 
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(kacp), // NEW: Injecting keepalive
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC client: %w", err)
+	}
+
+	client := pb.NewArchitectBrainClient(conn)
+
 	return &ArchitectClient{
-		conn: conn,
-		api:  pb.NewArchitectBrainClient(conn),
+		conn:   conn,
+		client: client,
 	}, nil
 }
 
 // Close gracefully shuts down the connection
-func (c *ArchitectClient) Close() {
+// AUDIT FIX: Returning the error so the caller knows if cleanup failed
+func (c *ArchitectClient) Close() error {
 	if c.conn != nil {
-		c.conn.Close()
+		return c.conn.Close()
 	}
+	return nil
 }
 
-// Refine takes raw JSON from Postgres, talks to the AI, and returns the updated JSON
-func (c *ArchitectClient) Refine(ctx context.Context, traceID, userID, prompt string, currentManifestJSON []byte) ([]byte, string, error) {
-	
-	// 1. Convert DB JSON []byte into the Protobuf Struct
-	var currentManifest pb.ProjectManifest
-	if len(currentManifestJSON) > 0 {
-		// We use protojson, NOT standard json, because protojson handles Protobuf specific edge-cases
-		if err := protojson.Unmarshal(currentManifestJSON, &currentManifest); err != nil {
-			return nil, "", fmt.Errorf("failed to parse DB manifest into Protobuf: %w", err)
-		}
-	}
-
-	// 2. Build the exact Request required by our manifest.proto
-	req := &pb.RefineManifestRequest{
-		TraceId:         traceID,
-		UserId:          userID,
-		UserPrompt:      prompt,
-		CurrentManifest: &currentManifest,
-	}
-
-	// 3. Fire the gRPC call to Python!
-	res, err := c.api.RefineManifest(ctx, req)
+// Refine sends the manifest and prompt to the Python AI Brain
+func (c *ArchitectClient) Refine(ctx context.Context, req *pb.RefineManifestRequest) (*pb.RefineManifestResponse, error) {
+	resp, err := c.client.RefineManifest(ctx, req)
 	if err != nil {
-		return nil, "", fmt.Errorf("gRPC call to AI Brain failed: %w", err)
+		// This is a REAL network/system error (e.g., connection refused, timeout)
+		return nil, fmt.Errorf("gRPC call failed: %w", err)
 	}
 
-	// 4. Handle AI Validation
-	if !res.IsValid {
-		// If the AI says "You can't connect Postgres to a static HTML site", 
-		// we return the reasoning but NO new JSON.
-		return nil, res.AiReasoning, fmt.Errorf("AI rejected the change")
-	}
-
-	// 5. Convert the newly updated Protobuf Struct back into raw JSON for Postgres
-	newManifestJSON, err := protojson.Marshal(res.UpdatedManifest)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to marshal updated Protobuf to JSON: %w", err)
-	}
-
-	return newManifestJSON, res.AiReasoning, nil
+	// We return the raw response and let the GraphQL resolver handle the business logic.
+	return resp, nil
 }
