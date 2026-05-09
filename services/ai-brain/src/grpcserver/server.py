@@ -25,7 +25,7 @@ import manifest_pb2_grpc
 env_path = current_dir.parents[3] / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from agent import app as ai_agent
+from grpcserver.agent import app as ai_agent
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AI-Brain")
@@ -36,7 +36,8 @@ logger = logging.getLogger("AI-Brain")
 resource = Resource(attributes={"service.name": "ai-brain-service"})
 trace.set_tracer_provider(TracerProvider(resource=resource))
 # Jaeger OTLP receiver runs on port 4317
-otlp_exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
+otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint, insecure=True)
 trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(otlp_exporter))
 tracer = trace.get_tracer("ai-brain.grpc")
 
@@ -63,7 +64,7 @@ class ArchitectBrainServicer(manifest_pb2_grpc.ArchitectBrainServicer):
             ) as span:
                 # Execute the graph
                 result = ai_agent.invoke({
-                    "project_name": manifest_dict.get("metadata", {}).get("project_name", "unknown_project"),
+                    "project_id": request.trace_id,
                     "prompt": request.user_prompt,
                     "current_manifest": manifest_dict
                 })

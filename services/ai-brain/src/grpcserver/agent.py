@@ -10,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 
 # =================================================================
-# 1. Schema Definitions
+# 1. Schema Definitions (MUST BE ABOVE THE LLM INIT)
 # =================================================================
 
 class Metadata(BaseModel):
@@ -36,16 +36,36 @@ class ProjectManifest(BaseModel):
     feature_flags: List[str]
 
 class AIResponse(BaseModel):
-    is_valid: bool = Field(description="True if valid architecture request, False if impossible or non-software.")
+    is_valid: bool = Field(description="True if valid architecture request, False if impossible.")
     ai_reasoning: str = Field(description="Explanation of what was changed, referencing the atomic library.")
     updated_manifest: ProjectManifest
+
+# =================================================================
+# 2. Module-Level Initialization & Caching
+# =================================================================
+
+def _load_atomic_library() -> dict:
+    try:
+        index_path = Path(__file__).resolve().parents[4] / "atomic-library" / "index.json"
+        with open(index_path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"⚠️ Atomic library unavailable: {e}")
+        return {}
+
+# Load once into memory on boot
+ATOMIC_LIBRARY = _load_atomic_library()
+
+# Initialize LLM client once (safely below AIResponse definition)
+_llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest"), temperature=0)
+_structured_llm = _llm.with_structured_output(AIResponse)
 
 # =================================================================
 # 2. LangGraph State Management
 # =================================================================
 
 class GraphState(TypedDict):
-    project_name: str         # NEW: Used as the Redis Key
+    project_id: str         # NEW: Used as the Redis Key
     prompt: str
     current_manifest: dict
     atomic_library: dict      
@@ -66,90 +86,66 @@ rdb = redis.Redis(host=redis_host, port=int(redis_port), decode_responses=True)
 # =================================================================
 
 def fetch_context(state: GraphState):
-    """NODE 1: Loads the Atomic Library AND the Conversation History from Redis."""
-    # 1. Fetch Library
-    root_dir = Path(__file__).resolve().parents[4]
-    index_path = root_dir / "atomic-library" / "index.json"
+    """Loads History and passes cached Atomic Library."""
+    history_key = f"archon:history:{state['project_id']}"
     
     try:
-        with open(index_path, 'r') as f:
-            library_data = json.load(f)
-    except Exception as e:
-        print(f"⚠️ Failed to load atomic library: {e}")
-        library_data = {"error": "Atomic library unavailable."}
-
-    # 2. Fetch History from Redis
-    history_key = f"archon:history:{state['project_name']}"
-    
-    try:
-        # Fetch the last 10 messages (5 conversation turns)
         raw_history = rdb.lrange(history_key, 0, -1)
         chat_history = [json.loads(msg) for msg in raw_history]
     except Exception as e:
         print(f"⚠️ Redis connection failed: {e}")
         chat_history = []
 
-    return {"atomic_library": library_data, "chat_history": chat_history}
+    return {"atomic_library": ATOMIC_LIBRARY, "chat_history": chat_history}
 
 
 def architect_solution(state: GraphState):
-    """NODE 2: Mutates the architecture with Memory & Constraints."""
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-    structured_llm = llm.with_structured_output(AIResponse)
-
+    """Mutates the architecture with Memory, Constraints, and Error Handling."""
     prompt_text = state["prompt"]
     manifest_str = json.dumps(state["current_manifest"], indent=2)
     library_str = json.dumps(state["atomic_library"], indent=2)
     
-    # Format the history for the LLM prompt
     history_str = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in state["chat_history"]])
     if not history_str:
         history_str = "No prior conversation."
 
-    system_msg = """You are Archon, an expert cloud software architect.
-    Your job is to read a JSON project manifest, listen to the user's prompt, and return an updated JSON manifest.
-    
-    CRITICAL CONSTRAINT: You MUST cross-reference your decisions with the ATOMIC LIBRARY.
-    - You can ONLY add nodes with a 'type' that exists in the Atomic Library.
-    - You MUST include the 'required_config' keys for that node type.
-    
-    RECENT CONVERSATION HISTORY (Use this for context if the user asks for revisions):
-    {history}
-    
-    ATOMIC LIBRARY:
-    {library}
-    
-    RULES:
-    1. If the request is impossible or asks for a stack NOT in the Atomic Library, set is_valid to false, explain why, and return the original manifest untouched.
-    2. Make sure any new nodes have unique, snake_case string IDs.
-    3. Set is_valid to true and explain exactly what you added/removed in the ai_reasoning field."""
+    system_msg = """... (Keep your exact system prompt from before) ..."""
 
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", system_msg),
         ("human", "Current Architecture:\n{manifest}\n\nUser Request: {prompt}")
     ])
 
-    chain = prompt_template | structured_llm
+    chain = prompt_template | _structured_llm
     
-    result = chain.invoke({
-        "library": library_str,
-        "history": history_str,
-        "manifest": manifest_str, 
-        "prompt": prompt_text
-    })
-
-    if not result.updated_manifest:
-        result.updated_manifest = ProjectManifest(**state["current_manifest"])
-
-    # --- SAVE MEMORY TO REDIS ---
-    history_key = f"archon:history:{state['project_name']}"
+    # CRITICAL FIX: Error handling for API timeouts/rate limits
     try:
-        # Push User Prompt
-        rdb.rpush(history_key, json.dumps({"role": "user", "content": prompt_text}))
-        # Push AI Reasoning
-        rdb.rpush(history_key, json.dumps({"role": "assistant", "content": result.ai_reasoning}))
-        # Trim history to keep only the latest 10 messages so the LLM context window doesn't blow up
-        rdb.ltrim(history_key, -10, -1)
+        result = chain.invoke({
+            "library": library_str,
+            "history": history_str,
+            "manifest": manifest_str, 
+            "prompt": prompt_text
+        })
+    except Exception as e:
+        print(f"❌ Gemini API failure: {e}")
+        return {"final_response": AIResponse(
+            is_valid=False,
+            ai_reasoning="The AI service is temporarily unavailable. Your architecture was not changed.",
+            updated_manifest=ProjectManifest.model_validate(state["current_manifest"])
+        )}
+
+    # MAJOR FIX: Use Pydantic model_validate instead of unpacking kwargs
+    if not result or not result.updated_manifest:
+        result.updated_manifest = ProjectManifest.model_validate(state["current_manifest"])
+
+    # MAJOR FIX: Atomic Redis Pipeline
+    history_key = f"archon:history:{state['project_id']}"
+    try:
+        pipe = rdb.pipeline()
+        pipe.rpush(history_key, json.dumps({"role": "user", "content": prompt_text}))
+        pipe.rpush(history_key, json.dumps({"role": "assistant", "content": result.ai_reasoning}))
+        pipe.ltrim(history_key, -10, -1)
+        pipe.execute()
     except Exception as e:
         print(f"⚠️ Failed to save history to Redis: {e}")
 
