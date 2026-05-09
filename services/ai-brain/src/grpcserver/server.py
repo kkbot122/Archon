@@ -64,7 +64,7 @@ class ArchitectBrainServicer(manifest_pb2_grpc.ArchitectBrainServicer):
             ) as span:
                 # Execute the graph
                 result = ai_agent.invoke({
-                    "project_id": request.trace_id,
+                    "project_id": request.user_id,
                     "prompt": request.user_prompt,
                     "current_manifest": manifest_dict
                 })

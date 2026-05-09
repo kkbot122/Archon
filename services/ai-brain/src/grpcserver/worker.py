@@ -51,36 +51,43 @@ def connect_with_retry(retries=5, backoff=5):
             
     raise Exception("❌ Max retries reached. Could not connect to Kafka.")
 
-def start_worker():
+def start_worker(stop_event):
     try:
-        # FIX: Replaced sleep(5) with a robust retry loop
         consumer, producer = connect_with_retry()
         logger.info(f"✅ Listening for deep-audit requests on '{VALIDATION_REQ_TOPIC}'...")
 
-        for message in consumer:
-            payload = message.value
-            trace_id = payload.get("trace_id", "unknown")
-            manifest = payload.get("manifest", {})
+        while not stop_event.is_set():
+            # Poll for messages every 1 second instead of blocking indefinitely
+            messages = consumer.poll(timeout_ms=1000)
             
-            logger.info(f"🕵️‍♂️ [Trace: {trace_id}] Deep audit requested for project: {manifest.get('metadata', {}).get('project_name')}")
-            
-            # Simulated AI Audit...
-            logger.info("⏳ Analyzing security, scalability, and cost...")
-            time.sleep(2) 
-            
-            audit_report = {
-                "trace_id": trace_id,
-                "project_id": payload.get("project_id"),
-                "status": "completed",
-                "findings": [
-                    {"level": "warning", "message": "Redis cache has no eviction policy set."},
-                    {"level": "info", "message": "Architecture is highly available."}
-                ]
-            }
-            
-            producer.send(VALIDATION_COMP_TOPIC, audit_report)
-            producer.flush()
-            logger.info(f"📤 Audit complete. Report published to '{VALIDATION_COMP_TOPIC}'.")
+            for tp, records in messages.items():
+                for message in records:
+                    payload = message.value
+                    trace_id = payload.get("trace_id", "unknown")
+                    manifest = payload.get("manifest", {})
+                    
+                    logger.info(f"🕵️‍♂️ [Trace: {trace_id}] Deep audit requested for project: {manifest.get('metadata', {}).get('project_name')}")
+                    
+                    logger.info("⏳ Analyzing security, scalability, and cost...")
+                    time.sleep(2) # Simulated Audit
+                    
+                    audit_report = {
+                        "trace_id": trace_id,
+                        "project_id": payload.get("project_id"),
+                        "status": "completed",
+                        "findings": [
+                            {"level": "warning", "message": "Redis cache has no eviction policy set."},
+                            {"level": "info", "message": "Architecture is highly available."}
+                        ]
+                    }
+                    
+                    producer.send(VALIDATION_COMP_TOPIC, audit_report)
+                    producer.flush()
+                    logger.info(f"📤 Audit complete. Report published to '{VALIDATION_COMP_TOPIC}'.")
+
+        logger.info("🛑 Worker stop event received. Closing Kafka connections...")
+        consumer.close()
+        producer.close()
 
     except Exception as e:
         logger.error(f"❌ Kafka Worker Error: {e}")

@@ -9,9 +9,16 @@ logger = logging.getLogger("AI-Brain-Main")
 if __name__ == '__main__':
     logger.info("🚀 Booting AI Brain Service...")
     
-    # Start the Kafka consumer in a background daemon thread
-    worker_thread = threading.Thread(target=start_worker, daemon=True)
+    stop_event = threading.Event()
+    
+    # Start the Kafka consumer in a background thread
+    worker_thread = threading.Thread(target=start_worker, args=(stop_event,), daemon=True)
     worker_thread.start()
     
-    # Start the gRPC server on the main thread (this blocks and keeps the app alive)
-    serve()
+    try:
+        # Start the gRPC server on the main thread (blocks)
+        serve()
+    finally:
+        logger.info("🛑 Main thread shutting down. Signalling background worker...")
+        stop_event.set()
+        worker_thread.join(timeout=10)
