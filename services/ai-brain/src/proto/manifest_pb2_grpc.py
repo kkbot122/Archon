@@ -3,12 +3,10 @@
 import grpc
 import warnings
 
-import manifest_pb2 as manifest__pb2
+from proto import manifest_pb2 as proto_dot_manifest__pb2
 
-GRPC_GENERATED_VERSION = '1.64.1'
+GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__
-EXPECTED_ERROR_RELEASE = '1.65.0'
-SCHEDULED_RELEASE_DATE = 'June 25, 2024'
 _version_not_supported = False
 
 try:
@@ -18,15 +16,12 @@ except ImportError:
     _version_not_supported = True
 
 if _version_not_supported:
-    warnings.warn(
+    raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in manifest_pb2_grpc.py depends on'
+        + ' but the generated code in proto/manifest_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
-        + f' This warning will become an error in {EXPECTED_ERROR_RELEASE},'
-        + f' scheduled for release on {SCHEDULED_RELEASE_DATE}.',
-        RuntimeWarning
     )
 
 
@@ -42,8 +37,8 @@ class ArchitectBrainStub(object):
         """
         self.RefineManifest = channel.unary_unary(
                 '/archon.manifest.v1.ArchitectBrain/RefineManifest',
-                request_serializer=manifest__pb2.RefineManifestRequest.SerializeToString,
-                response_deserializer=manifest__pb2.RefineManifestResponse.FromString,
+                request_serializer=proto_dot_manifest__pb2.RefineManifestRequest.SerializeToString,
+                response_deserializer=proto_dot_manifest__pb2.RefineManifestResponse.FromString,
                 _registered_method=True)
 
 
@@ -63,13 +58,14 @@ def add_ArchitectBrainServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'RefineManifest': grpc.unary_unary_rpc_method_handler(
                     servicer.RefineManifest,
-                    request_deserializer=manifest__pb2.RefineManifestRequest.FromString,
-                    response_serializer=manifest__pb2.RefineManifestResponse.SerializeToString,
+                    request_deserializer=proto_dot_manifest__pb2.RefineManifestRequest.FromString,
+                    response_serializer=proto_dot_manifest__pb2.RefineManifestResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
             'archon.manifest.v1.ArchitectBrain', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('archon.manifest.v1.ArchitectBrain', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -92,8 +88,8 @@ class ArchitectBrain(object):
             request,
             target,
             '/archon.manifest.v1.ArchitectBrain/RefineManifest',
-            manifest__pb2.RefineManifestRequest.SerializeToString,
-            manifest__pb2.RefineManifestResponse.FromString,
+            proto_dot_manifest__pb2.RefineManifestRequest.SerializeToString,
+            proto_dot_manifest__pb2.RefineManifestResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,30 +1,22 @@
-import sys
 import os
 import time
 import logging
 from concurrent import futures
-from pathlib import Path
 import grpc
 from google.protobuf import json_format
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 
-# 1. Path Hacks
-current_dir = Path(__file__).resolve().parent
-proto_dir = current_dir.parent / "proto"
-sys.path.insert(0, str(proto_dir))
+# 1. Clean Environment Loading (Finds .env at the monorepo root automatically)
+load_dotenv(find_dotenv())
 
-import manifest_pb2
-import manifest_pb2_grpc
-
-# FIX 1: Correct .env path (up 4 levels to the root Archon folder)
-env_path = current_dir.parents[3] / ".env"
-load_dotenv(dotenv_path=env_path)
-
+# 2. Clean Imports (Enabled by Poetry installing 'src' as a package)
+from proto import manifest_pb2
+from proto import manifest_pb2_grpc
 from grpcserver.agent import app as ai_agent
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -45,7 +37,7 @@ class ArchitectBrainServicer(manifest_pb2_grpc.ArchitectBrainServicer):
     def RefineManifest(self, request, context):
         logger.info(f"🧠 --- New Request | Trace: {request.trace_id} ---")
         
-        # FIX 2: Input Validation
+        # Input Validation
         if not request.user_prompt.strip():
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "user_prompt cannot be empty")
             return manifest_pb2.RefineManifestResponse()
@@ -86,13 +78,13 @@ class ArchitectBrainServicer(manifest_pb2_grpc.ArchitectBrainServicer):
             )
             
         except Exception as e:
-            # FIX 3: Catch unhandled LLM/Graph errors so Go doesn't crash
+            # Catch unhandled LLM/Graph errors so Go doesn't crash
             logger.error(f"❌ LLM Execution Failed: {str(e)}")
             context.abort(grpc.StatusCode.INTERNAL, f"AI Brain Internal Error: {str(e)}")
             return manifest_pb2.RefineManifestResponse()
 
 def serve():
-    # FIX 4: Configurable Max Workers
+    # Configurable Max Workers
     max_workers = int(os.getenv("GRPC_MAX_WORKERS", "10"))
     
     server_options = [
@@ -117,7 +109,7 @@ def serve():
             time.sleep(86400)
     except KeyboardInterrupt:
         logger.info("🛑 Shutting down AI Brain gracefully...")
-        # FIX 5: Graceful Shutdown (allows in-flight LLM calls to finish)
+        # Graceful Shutdown (allows in-flight LLM calls to finish)
         server.stop(grace=30)
 
 if __name__ == '__main__':

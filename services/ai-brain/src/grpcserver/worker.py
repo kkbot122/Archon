@@ -4,13 +4,10 @@ import time
 import logging
 from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import NoBrokersAvailable
-from dotenv import load_dotenv
-from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
 
-# Setup Path & Env
-current_dir = Path(__file__).resolve().parent
-env_path = current_dir.parents[3] / ".env"
-load_dotenv(dotenv_path=env_path)
+# Setup Clean Environment Loading
+load_dotenv(find_dotenv())
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AI-Kafka-Worker")
@@ -32,7 +29,7 @@ def connect_with_retry(retries=5, backoff=5):
                 bootstrap_servers=KAFKA_BROKER,
                 group_id=KAFKA_GROUP,
                 api_version=(3, 5, 0),
-                auto_offset_reset='earliest', # FIX: Process missed messages on restart
+                auto_offset_reset='earliest',
                 enable_auto_commit=True,
                 value_deserializer=lambda x: json.loads(x.decode('utf-8'))
             )
@@ -93,4 +90,6 @@ def start_worker(stop_event):
         logger.error(f"❌ Kafka Worker Error: {e}")
 
 if __name__ == '__main__':
-    start_worker()
+    # When testing the worker standalone, provide a dummy event
+    import threading
+    start_worker(threading.Event())

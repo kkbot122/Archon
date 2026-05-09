@@ -4,6 +4,10 @@ import redis
 from pathlib import Path
 from typing import List, Dict, TypedDict
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv, find_dotenv
+
+# Ensure environment variables are loaded for LLM and Redis clients
+load_dotenv(find_dotenv())
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -46,6 +50,7 @@ class AIResponse(BaseModel):
 
 def _load_atomic_library() -> dict:
     try:
+        # Resolves monorepo root dynamically assuming current structure
         index_path = Path(__file__).resolve().parents[4] / "atomic-library" / "index.json"
         with open(index_path, 'r') as f:
             return json.load(f)
@@ -56,33 +61,32 @@ def _load_atomic_library() -> dict:
 # Load once into memory on boot
 ATOMIC_LIBRARY = _load_atomic_library()
 
-# Initialize LLM client once (safely below AIResponse definition)
+# Initialize LLM client once
 _llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest"), temperature=0)
 _structured_llm = _llm.with_structured_output(AIResponse)
 
 # =================================================================
-# 2. LangGraph State Management
+# 3. LangGraph State Management
 # =================================================================
 
 class GraphState(TypedDict):
-    project_id: str         # NEW: Used as the Redis Key
+    project_id: str         
     prompt: str
     current_manifest: dict
     atomic_library: dict      
-    chat_history: list        # NEW: The fetched conversation history
+    chat_history: list        
     final_response: AIResponse
 
 # =================================================================
-# 3. Redis Setup
+# 4. Redis Setup
 # =================================================================
 
-# Connect to the Redis container running on your local machine
 redis_addr = os.getenv("REDIS_ADDR", "localhost:6379")
 redis_host, redis_port = redis_addr.split(":")
 rdb = redis.Redis(host=redis_host, port=int(redis_port), decode_responses=True)
 
 # =================================================================
-# 4. Graph Nodes
+# 5. Graph Nodes
 # =================================================================
 
 def fetch_context(state: GraphState):
@@ -135,7 +139,6 @@ def architect_solution(state: GraphState):
 
     chain = prompt_template | _structured_llm
     
-    # CRITICAL FIX: Error handling for API timeouts/rate limits
     try:
         result = chain.invoke({
             "library": library_str,
@@ -151,11 +154,10 @@ def architect_solution(state: GraphState):
             updated_manifest=ProjectManifest.model_validate(state["current_manifest"])
         )}
 
-    # MAJOR FIX: Use Pydantic model_validate instead of unpacking kwargs
     if not result or not result.updated_manifest:
         result.updated_manifest = ProjectManifest.model_validate(state["current_manifest"])
 
-    # MAJOR FIX: Atomic Redis Pipeline
+    # Atomic Redis Pipeline
     history_key = f"archon:history:{state['project_id']}"
     try:
         pipe = rdb.pipeline()
@@ -169,7 +171,7 @@ def architect_solution(state: GraphState):
     return {"final_response": result}
 
 # =================================================================
-# 5. Compile the Pipeline
+# 6. Compile the Pipeline
 # =================================================================
 
 workflow = StateGraph(GraphState)
