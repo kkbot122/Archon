@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "available_nodes": [
+    {
+      "type": "postgres_db",
+      "description": "Relational database for persistent storage.",
+      "allowed_versions": ["13", "14", "15"],
+      "required_config": ["storage_size_gb", "max_connections"]
+    },
+    {
+      "type": "redis_cache",
+      "description": "In-memory datastore for caching.",
+      "allowed_versions": ["6.2", "7.0"],
+      "required_config": ["memory_limit_mb", "eviction_policy"]
+    },
+    {
+      "type": "go_backend",
+      "description": "Golang API microservice.",
+      "allowed_versions": ["1.21", "1.22"],
+      "required_config": ["port"]
+    },
+    {
+      "type": "react_frontend",
+      "description": "React.js web application.",
+      "allowed_versions": ["18.0"],
+      "required_config": ["port"]
+    }
+  ],
+  "allowed_protocols": ["tcp", "http", "grpc"]
+}

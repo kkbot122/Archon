@@ -5,9 +5,15 @@ import logging
 from concurrent import futures
 from pathlib import Path
 import grpc
+from google.protobuf import json_format
+from dotenv import load_dotenv
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
 
-# 1. Path Hacks (Because Python protoc generation is stubborn)
-# This ensures Python can find the generated pb2 files in the proto/ directory
+# 1. Path Hacks
 current_dir = Path(__file__).resolve().parent
 proto_dir = current_dir.parent / "proto"
 sys.path.insert(0, str(proto_dir))
@@ -15,81 +21,103 @@ sys.path.insert(0, str(proto_dir))
 import manifest_pb2
 import manifest_pb2_grpc
 
-from google.protobuf import json_format
-from dotenv import load_dotenv
+# FIX 1: Correct .env path (up 4 levels to the root Archon folder)
+env_path = current_dir.parents[3] / ".env"
+load_dotenv(dotenv_path=env_path)
+
 from agent import app as ai_agent
 
-load_dotenv(dotenv_path=current_dir.parent.parent.parent / '.env')
-
-# Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AI-Brain")
 
+# =================================================================
+# OpenTelemetry Setup (Sends traces to Jaeger)
+# =================================================================
+resource = Resource(attributes={"service.name": "ai-brain-service"})
+trace.set_tracer_provider(TracerProvider(resource=resource))
+# Jaeger OTLP receiver runs on port 4317
+otlp_exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
+trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(otlp_exporter))
+tracer = trace.get_tracer("ai-brain.grpc")
+
 class ArchitectBrainServicer(manifest_pb2_grpc.ArchitectBrainServicer):
     def RefineManifest(self, request, context):
-        logger.info("🧠 --- New Architecture Request ---")
-        logger.info(f"Trace ID: {request.trace_id}")
-        logger.info(f"User Prompt: '{request.user_prompt}'")
-        logger.info(f"Current Nodes: {len(request.current_manifest.nodes)}")
+        logger.info(f"🧠 --- New Request | Trace: {request.trace_id} ---")
         
-        # Convert the Protobuf request into a standard Python dictionary
-        manifest_dict = json_format.MessageToDict(
-            request.current_manifest, 
-            preserving_proto_field_name=True # Keeps snake_case (e.g. project_name)
-        )
+        # FIX 2: Input Validation
+        if not request.user_prompt.strip():
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "user_prompt cannot be empty")
+            return manifest_pb2.RefineManifestResponse()
 
-        logger.info("🤖 Sending to Gemini...")
-        
-        # Run our LangGraph AI Agent!
-        result = ai_agent.invoke({
-            "prompt": request.user_prompt,
-            "current_manifest": manifest_dict
-        })
-        
-        final_response = result["final_response"]
-        
-        # Convert the Pydantic dictionary back into a Protobuf object
-        updated_manifest_pb = manifest_pb2.ProjectManifest()
-        json_format.ParseDict(final_response.updated_manifest.model_dump(), updated_manifest_pb)
+        try:
+            manifest_dict = json_format.MessageToDict(
+                request.current_manifest, 
+                preserving_proto_field_name=True
+            )
 
-        logger.info(f"✅ AI Reasoning: {final_response.ai_reasoning}")
-        
-        return manifest_pb2.RefineManifestResponse(
-            trace_id=request.trace_id,
-            is_valid=final_response.is_valid,
-            ai_reasoning=final_response.ai_reasoning,
-            updated_manifest=updated_manifest_pb
-        )
+            logger.info("🤖 Sending to LangGraph Agent...")
+            
+            with tracer.start_as_current_span(
+                "langgraph_architect_execution",
+                attributes={"trace_id": request.trace_id, "prompt": request.user_prompt}
+            ) as span:
+                # Execute the graph
+                result = ai_agent.invoke({
+                    "project_name": manifest_dict.get("metadata", {}).get("project_name", "unknown_project"),
+                    "prompt": request.user_prompt,
+                    "current_manifest": manifest_dict
+                })
+                
+                final_response = result["final_response"]
+                # Record the AI's decision in the trace
+                span.set_attribute("is_valid", final_response.is_valid)
+            
+            updated_manifest_pb = manifest_pb2.ProjectManifest()
+            json_format.ParseDict(final_response.updated_manifest.model_dump(), updated_manifest_pb)
+
+            logger.info(f"✅ AI Reasoning: {final_response.ai_reasoning}")
+            
+            return manifest_pb2.RefineManifestResponse(
+                trace_id=request.trace_id,
+                is_valid=final_response.is_valid,
+                ai_reasoning=final_response.ai_reasoning,
+                updated_manifest=updated_manifest_pb
+            )
+            
+        except Exception as e:
+            # FIX 3: Catch unhandled LLM/Graph errors so Go doesn't crash
+            logger.error(f"❌ LLM Execution Failed: {str(e)}")
+            context.abort(grpc.StatusCode.INTERNAL, f"AI Brain Internal Error: {str(e)}")
+            return manifest_pb2.RefineManifestResponse()
 
 def serve():
-    # NEW: Configure Python to accept frequent keepalive pings from the Go client
+    # FIX 4: Configurable Max Workers
+    max_workers = int(os.getenv("GRPC_MAX_WORKERS", "10"))
+    
     server_options = [
-        ('grpc.keepalive_time_ms', 10000), # Send pings every 10 seconds
-        ('grpc.keepalive_timeout_ms', 3000), # Wait 3 seconds for ping ack
-        ('grpc.keepalive_permit_without_calls', True), # Allow pings even when idle
-        ('grpc.http2.max_pings_without_data', 0), # 0 means unlimited pings
-        ('grpc.http2.min_recv_ping_interval_without_data_ms', 5000), # Allow client to ping every 5s
+        ('grpc.keepalive_time_ms', 10000), 
+        ('grpc.keepalive_timeout_ms', 3000), 
+        ('grpc.keepalive_permit_without_calls', True), 
+        ('grpc.http2.max_pings_without_data', 0), 
+        ('grpc.http2.min_recv_ping_interval_without_data_ms', 5000), 
     ]
 
-    # Create a gRPC server with the new options
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), options=server_options)
-    
-    # Attach our service to the server
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers), options=server_options)
     manifest_pb2_grpc.add_ArchitectBrainServicer_to_server(ArchitectBrainServicer(), server)
     
-    # Listen on port 50051
-    server.add_insecure_port('[::]:50051')
+    port = os.getenv("AI_BRAIN_PORT", "50051")
+    server.add_insecure_port(f'[::]:{port}')
     server.start()
     
-    logger.info("🐍 AI Brain (gRPC) listening on port 50051...")
+    logger.info(f"🐍 AI Brain (gRPC) listening on port {port}...")
     
-    # Keep the main thread alive
     try:
         while True:
             time.sleep(86400)
     except KeyboardInterrupt:
-        logger.info("🛑 Shutting down AI Brain...")
-        server.stop(0)
+        logger.info("🛑 Shutting down AI Brain gracefully...")
+        # FIX 5: Graceful Shutdown (allows in-flight LLM calls to finish)
+        server.stop(grace=30)
 
 if __name__ == '__main__':
     serve()
