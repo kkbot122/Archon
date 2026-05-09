@@ -20,7 +20,7 @@ type ArchitectClient struct {
 func NewClient(target string) (*ArchitectClient, error) {
 	// Configure Keepalive parameters
 	kacp := keepalive.ClientParameters{
-		Time:                10 * time.Second, // Send pings every 10s if idle
+		Time:                1 * time.Minute, // Send pings every 10s if idle
 		Timeout:             3 * time.Second,  // Wait 3s for ping ack before declaring dead
 		PermitWithoutStream: true,             // Send pings even without active RPCs
 	}
