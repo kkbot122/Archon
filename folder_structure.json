@@ -27,7 +27,13 @@
           "children": [
             {
               "name": "docker",
-              "type": "folder"
+              "type": "folder",
+              "children": [
+                {
+                  "name": "init.sql",
+                  "type": "file"
+                }
+              ]
             },
             {
               "name": "terraform",
@@ -41,11 +47,49 @@
           "children": [
             {
               "name": "kafka",
-              "type": "folder"
+              "type": "folder",
+              "children": [
+                {
+                  "name": "events.go",
+                  "type": "file"
+                },
+                {
+                  "name": "producer.go",
+                  "type": "file"
+                }
+              ]
             },
             {
               "name": "logger",
               "type": "folder"
+            },
+            {
+              "name": "pb",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "manifest.pb.go",
+                  "type": "file"
+                },
+                {
+                  "name": "manifest_grpc.pb.go",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "proto",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "manifest.pb.go",
+                  "type": "file"
+                },
+                {
+                  "name": "manifest_grpc.pb.go",
+                  "type": "file"
+                }
+              ]
             },
             {
               "name": "telemetry",
@@ -53,6 +97,10 @@
             },
             {
               "name": "go.mod",
+              "type": "file"
+            },
+            {
+              "name": "go.sum",
               "type": "file"
             }
           ]
@@ -89,18 +137,46 @@
                     },
                     {
                       "name": "grpcserver",
-                      "type": "folder"
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "agent.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "server.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "worker.py",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
                       "name": "llm",
                       "type": "folder"
                     },
                     {
-                      "name": "main.py",
-                      "type": "file"
+                      "name": "proto",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "manifest_pb2.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "manifest_pb2_grpc.py",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
-                      "name": "worker.py",
+                      "name": "main.py",
                       "type": "file"
                     }
                   ]
@@ -141,21 +217,101 @@
                   "children": [
                     {
                       "name": "db",
-                      "type": "folder"
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "models.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "repository.go",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
                       "name": "graphql",
-                      "type": "folder"
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "generated.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "models_gen.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "resolver.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "schema.graphql",
+                          "type": "file"
+                        },
+                        {
+                          "name": "schema.resolvers.go",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
                       "name": "grpcclient",
-                      "type": "folder"
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "client.go",
+                          "type": "file"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "middleware",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "middleware.go",
+                          "type": "file"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "telemetry",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "tracer.go",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
                       "name": "ws",
-                      "type": "folder"
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "hub.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "redis_pubsub.go",
+                          "type": "file"
+                        }
+                      ]
                     }
                   ]
+                },
+                {
+                  "name": "go.mod",
+                  "type": "file"
+                },
+                {
+                  "name": "go.sum",
+                  "type": "file"
+                },
+                {
+                  "name": "gqlgen.yml",
+                  "type": "file"
                 }
               ]
             },
@@ -196,6 +352,10 @@
                       "type": "folder"
                     }
                   ]
+                },
+                {
+                  "name": "go.mod",
+                  "type": "file"
                 }
               ]
             }
@@ -218,14 +378,22 @@
           "type": "file"
         },
         {
+          "name": "folder_structure.json",
+          "type": "file"
+        },
+        {
           "name": "go.work",
+          "type": "file"
+        },
+        {
+          "name": "go.work.sum",
           "type": "file"
         }
       ]
     }
   ],
   "metadata": {
-    "generated": "2026-05-05T12:58:11.244Z",
+    "generated": "2026-05-09T17:25:42.017Z",
     "generator": "FileTree Pro Extension",
     "version": "0.2.0",
     "showIcons": false,

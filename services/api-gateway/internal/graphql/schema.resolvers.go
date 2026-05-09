@@ -156,7 +156,12 @@ func (r *queryResolver) GetLatestManifest(ctx context.Context, projectID string)
 
 	m, err := r.DB.GetLatestManifest(ctx, pID)
 	if err != nil {
-		return nil, fmt.Errorf("manifest not found")
+		return nil, fmt.Errorf("failed to query manifest: %w", err)
+	}
+
+	// PROD FIX: Safely handle the case where the project exists but has no manifest yet
+	if m == nil {
+		return nil, nil 
 	}
 
 	return &ManifestRecord{
