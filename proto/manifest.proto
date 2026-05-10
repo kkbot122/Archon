@@ -5,6 +5,9 @@ option go_package = "github.com/kisna/archon/internal/pb";
 
 package archon.manifest.v1;
 
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
 // ---------------------------------------------------------
 // 1. Core Data Structures (The "Lego Bricks")
 // ---------------------------------------------------------
@@ -13,13 +16,14 @@ message Metadata {
   string project_name = 1;
   string target_cloud = 2; // e.g., "AWS", "Vercel", "GCP"
   string schema_version = 3; // Crucial for backwards compatibility
+  google.protobuf.Timestamp created_at = 4; 
 }
 
 message ArchitectureNode {
   string id = 1;           // e.g., "auth_service"
   string type = 2;         // e.g., "clerk", "postgres", "redis"
   string version = 3;      // e.g., "1.2.0"
-  map<string, string> config = 4; // Key-value pairs for env vars or settings
+  google.protobuf.Struct config = 4; // Key-value pairs for env vars or settings
 }
 
 message Connection {

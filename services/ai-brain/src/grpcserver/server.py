@@ -36,6 +36,16 @@ tracer = trace.get_tracer("ai-brain.grpc")
 class ArchitectBrainServicer(manifest_pb2_grpc.ArchitectBrainServicer):
     def RefineManifest(self, request, context):
         logger.info(f"🧠 --- New Request | Trace: {request.trace_id} ---")
+
+        prompt_length = len(request.user_prompt)
+        if prompt_length == 0:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "user_prompt cannot be empty")
+            return manifest_pb2.RefineManifestResponse()
+            
+        if prompt_length > 2000:
+            logger.warning(f"⚠️ Prompt too long ({prompt_length} chars). Rejecting.")
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "user_prompt exceeds 2000 character limit")
+            return manifest_pb2.RefineManifestResponse()
         
         # Input Validation
         if not request.user_prompt.strip():

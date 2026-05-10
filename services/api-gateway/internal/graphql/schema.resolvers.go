@@ -71,7 +71,8 @@ func (r *mutationResolver) RefineArchitecture(ctx context.Context, projectID str
 	resp, err := r.AI.Refine(aiCtx, req)
 	if err != nil {
 		// Path A: The system failed (timeout, network drop, AI Brain crashed)
-		return nil, fmt.Errorf("internal system error: failed to communicate with AI Brain: %w", err)
+		fmt.Printf("❌ [INTERNAL ERROR] AI gRPC Call Failed: %v\n", err)
+		return nil, fmt.Errorf("the AI architect service is currently unavailable, please try again later")
 	}
 
 	if !resp.IsValid {
@@ -98,12 +99,24 @@ func (r *mutationResolver) RefineArchitecture(ctx context.Context, projectID str
 	}
 
 	// 5. Broadcast the update to all connected WebSockets via Redis!
-	go func() {
-		pubErr := r.Redis.PublishManifestUpdate(context.Background(), projectID, string(newData))
+	go func(project string, data string) {
+		// 1. Catch panics so the Gateway doesn't crash
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("⚠️ [PANIC RECOVERED] Redis Broadcast Panic: %v\n", r)
+			}
+		}()
+
+		// 2. Give the background task its own bounded context 
+		// (Don't use the HTTP request context as it cancels when the HTTP request ends)
+		bgCtx, bgCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer bgCancel()
+
+		pubErr := r.Redis.PublishManifestUpdate(bgCtx, project, data)
 		if pubErr != nil {
-			fmt.Printf("Redis Publish Error: %v\n", pubErr)
+			fmt.Printf("⚠️ Redis Publish Error: %v\n", pubErr)
 		}
-	}()
+	}(projectID, string(newData))
 
 	return &RefineResponse{
 		IsValid:   true,

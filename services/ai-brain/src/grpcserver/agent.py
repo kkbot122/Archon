@@ -50,19 +50,24 @@ class AIResponse(BaseModel):
 
 def _load_atomic_library() -> dict:
     try:
-        # Resolves monorepo root dynamically assuming current structure
-        index_path = Path(__file__).resolve().parents[4] / "atomic-library" / "index.json"
-        with open(index_path, 'r') as f:
+        index_path = os.getenv("ATOMIC_LIBRARY_PATH", "/app/atomic-library/index.json")
+        path_obj = Path(index_path)
+
+        if not path_obj.exists():
+            # Fallback for running local python scripts directly
+            path_obj = Path(__file__).resolve().parents[4] / "atomic-library" / "index.json"
+
+        with open(path_obj, 'r') as f:
             return json.load(f)
     except Exception as e:
-        print(f"⚠️ Atomic library unavailable: {e}")
+        print(f"⚠️ Atomic library unavailable at {index_path}: {e}")
         return {}
 
 # Load once into memory on boot
 ATOMIC_LIBRARY = _load_atomic_library()
 
 # Initialize LLM client once
-_llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest"), temperature=0)
+_llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), temperature=0)
 _structured_llm = _llm.with_structured_output(AIResponse)
 
 # =================================================================
@@ -164,6 +169,7 @@ def architect_solution(state: GraphState):
         pipe.rpush(history_key, json.dumps({"role": "user", "content": prompt_text}))
         pipe.rpush(history_key, json.dumps({"role": "assistant", "content": result.ai_reasoning}))
         pipe.ltrim(history_key, -10, -1)
+        pipe.expire(history_key, 86400)
         pipe.execute()
     except Exception as e:
         print(f"⚠️ Failed to save history to Redis: {e}")
