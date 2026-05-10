@@ -17,7 +17,7 @@ load_dotenv(find_dotenv())
 # 2. Clean Imports (Enabled by Poetry installing 'src' as a package)
 from proto import manifest_pb2
 from proto import manifest_pb2_grpc
-from grpcserver.agent import app as ai_agent
+from grpc_server.agent import app as ai_agent
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AI-Brain")

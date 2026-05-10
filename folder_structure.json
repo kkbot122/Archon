@@ -68,19 +68,19 @@
               "type": "folder",
               "children": [
                 {
-                  "name": "manifest.pb.go",
-                  "type": "file"
+                  "name": "proto",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "manifest.pb.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "manifest_grpc.pb.go",
+                      "type": "file"
+                    }
+                  ]
                 },
-                {
-                  "name": "manifest_grpc.pb.go",
-                  "type": "file"
-                }
-              ]
-            },
-            {
-              "name": "proto",
-              "type": "folder",
-              "children": [
                 {
                   "name": "manifest.pb.go",
                   "type": "file"
@@ -128,17 +128,13 @@
                   "type": "folder",
                   "children": [
                     {
-                      "name": "consumers",
-                      "type": "folder"
-                    },
-                    {
-                      "name": "graph",
-                      "type": "folder"
-                    },
-                    {
                       "name": "grpcserver",
                       "type": "folder",
                       "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file"
+                        },
                         {
                           "name": "agent.py",
                           "type": "file"
@@ -152,10 +148,6 @@
                           "type": "file"
                         }
                       ]
-                    },
-                    {
-                      "name": "llm",
-                      "type": "folder"
                     },
                     {
                       "name": "proto",
@@ -182,11 +174,11 @@
                   ]
                 },
                 {
-                  "name": "tests",
-                  "type": "folder"
+                  "name": "poetry.lock",
+                  "type": "file"
                 },
                 {
-                  "name": "requirements.txt",
+                  "name": "pyproject.toml",
                   "type": "file"
                 }
               ]
@@ -320,6 +312,28 @@
               "type": "folder",
               "children": [
                 {
+                  "name": "builder",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "builder.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "logs.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "runner.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "runner_test.go",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
                   "name": "cmd",
                   "type": "folder",
                   "children": [
@@ -336,25 +350,155 @@
                   ]
                 },
                 {
+                  "name": "consumer",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "consumer.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "handler.go",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
                   "name": "internal",
                   "type": "folder",
                   "children": [
                     {
-                      "name": "builder",
-                      "type": "folder"
+                      "name": "config",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "config.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "config_test.go",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
-                      "name": "consumer",
-                      "type": "folder"
+                      "name": "metrics",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "metrics.go",
+                          "type": "file"
+                        }
+                      ]
                     },
                     {
-                      "name": "docker",
-                      "type": "folder"
+                      "name": "telemetry",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "tracer.go",
+                          "type": "file"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "library",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "index.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "resolver.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "resolver_test.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "types.go",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "manifest",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "manifest.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "validator.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "validator_test.go",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "publisher",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "events.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "publisher.go",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "stitcher",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "merger.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "stitcher.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "stitcher_test.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "template.go",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "workspace",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "cleanup.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "workspace.go",
+                      "type": "file"
                     }
                   ]
                 },
                 {
                   "name": "go.mod",
+                  "type": "file"
+                },
+                {
+                  "name": "go.sum",
                   "type": "file"
                 }
               ]
@@ -393,7 +537,7 @@
     }
   ],
   "metadata": {
-    "generated": "2026-05-09T17:25:42.017Z",
+    "generated": "2026-05-10T14:17:14.423Z",
     "generator": "FileTree Pro Extension",
     "version": "0.2.0",
     "showIcons": false,
