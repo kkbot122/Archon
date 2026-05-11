@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kisna/archon/internal/kafka"
+	"github.com/kisna/archon/services/api-gateway/internal/kafka"
 	"github.com/kisna/archon/internal/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 )

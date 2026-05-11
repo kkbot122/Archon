@@ -73,3 +73,15 @@ func (rm *RedisManager) ListenForManifestUpdates(ctx context.Context, hub *Hub) 
 		}
 	}
 }
+
+// PublishBuildUpdate broadcasts build success/failure from Kafka to WebSockets
+func (rm *RedisManager) PublishBuildUpdate(ctx context.Context, projectID string, payload string) error {
+	// Re-using the same channel so the frontend receives it seamlessly!
+	channel := "project_updates:" + projectID
+	err := rm.client.Publish(ctx, channel, payload).Err()
+	if err != nil {
+		log.Printf("Failed to publish build update to Redis channel %s: %v", channel, err)
+		return err
+	}
+	return nil
+}

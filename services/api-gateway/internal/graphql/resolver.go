@@ -2,7 +2,7 @@
 package graphql
 
 import (
-	"github.com/kisna/archon/internal/kafka"
+	"github.com/kisna/archon/services/api-gateway/internal/kafka"
 	"github.com/kisna/archon/services/api-gateway/internal/db"
 	"github.com/kisna/archon/services/api-gateway/internal/grpcclient"
 	"github.com/kisna/archon/services/api-gateway/internal/ws"

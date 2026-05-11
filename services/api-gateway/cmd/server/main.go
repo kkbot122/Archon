@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
-	"github.com/kisna/archon/internal/kafka"
+	"github.com/kisna/archon/services/api-gateway/internal/kafka"
 	"github.com/kisna/archon/services/api-gateway/internal/db"
 	"github.com/kisna/archon/services/api-gateway/internal/graphql"
 	"github.com/kisna/archon/services/api-gateway/internal/grpcclient"
@@ -85,7 +85,7 @@ func main() {
 	go redisManager.ListenForManifestUpdates(ctx, hub)
 
 	// 4. Initialize Kafka Producer (Event Bus)
-	kafkaProducer := kafka.NewProducer(kafkaBroker, kafka.TopicBuildRequested)
+	kafkaProducer := kafka.NewProducer(kafkaBroker, "build.requests")
 	defer kafkaProducer.Close()
 	log.Println("✅ Connected to Kafka Producer")
 
@@ -110,12 +110,16 @@ func main() {
 	// 7. Setup HTTP Routes
 	mux := http.NewServeMux()
 	mux.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	mux.Handle("/query", srv)
+	
+	// Apply Auth ONLY to the GraphQL endpoint
+	protectedGraphQL := middleware.Chain(srv, middleware.Auth)
+	mux.Handle("/query", protectedGraphQL)
+	
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		ws.ServeWS(hub, w, r)
 	})
 
-	// NEW: Wrap the entire mux in our middleware stack
+	// Wrap the entire mux in the global middleware stack
 	protectedHandler := middleware.Chain(mux, middleware.Recover, middleware.Logger, middleware.CORS)
 
 	// 8. Configure the Production HTTP Server
