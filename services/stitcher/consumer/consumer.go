@@ -3,43 +3,70 @@ package consumer
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/segmentio/kafka-go"
+
+	"github.com/kisna/archon/services/stitcher/publisher"
 )
 
+// Consumer listens to build-request topics, processes them,
+// retries on failure, and sends to a dead‑letter queue if retries are exhausted.
 type Consumer struct {
-	reader  *kafka.Reader
-	handler *Handler
+	reader       *kafka.Reader
+	handler      *Handler
+	retryWriter  *kafka.Writer        // writes to the retry topic
+	dlqPublisher *publisher.Publisher // publishes dead‑letter events
+	maxRetries   int
 }
 
-// New initializes the Kafka reader with manual commit configurations
-func New(brokers []string, groupID, topic string, handler *Handler) *Consumer {
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: brokers,
-		GroupID: groupID,
-		Topic:   topic,
-		// Require explicit commits so we guarantee at-least-once delivery
-		CommitInterval: 0, 
-		MaxBytes:       10e6, // 10MB payload max
+// New creates a Consumer that subscribes to multiple topics (primary + retry),
+// handles retries, and sends to a dead‑letter queue after maxRetries attempts.
+// topics should contain the primary topic and the retry topic, e.g. ["builds", "builds.retry"].
+func New(brokers []string, groupID string, topics []string, handler *Handler) *Consumer {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:        brokers,
+		GroupID:        groupID,
+		GroupTopics:    topics, // subscribe to all given topics
+		CommitInterval: 0,      // manual commits only
+		MaxBytes:       10e6,   // 10 MB
 	})
-	return &Consumer{reader: r, handler: handler}
+
+	// Retry writer publishes to the primary topic (the first in the list)
+	retryWriter := &kafka.Writer{
+		Addr:     kafka.TCP(brokers...),
+		Topic:    topics[0],
+		Balancer: &kafka.LeastBytes{},
+	}
+
+	// DLQ publisher reuses the existing status publisher but with a dedicated topic
+	dlqPub := publisher.New(strings.Join(brokers, ","), "build.requests.dlq")
+
+	return &Consumer{
+		reader:       reader,
+		handler:      handler,
+		retryWriter:  retryWriter,
+		dlqPublisher: dlqPub,
+		maxRetries:   3, // can be made configurable via environment
+	}
 }
 
-// Start begins the blocking event loop
+// Start runs the blocking message processing loop.
+// It exits only when the context is cancelled.
 func (c *Consumer) Start(ctx context.Context) {
 	log.Info().Msg("🎧 Kafka Consumer started. Listening for build requests...")
 
 	for {
-		// FetchMessage blocks until a message is received or context is canceled
 		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				log.Info().Msg("Consumer context canceled, gracefully shutting down loop.")
+				log.Info().Msg("Consumer context canceled, shutting down gracefully.")
 				return
 			}
-			log.Error().Err(err).Msg("Error fetching kafka message")
+			log.Error().Err(err).Msg("Error fetching Kafka message")
 			continue
 		}
 
@@ -49,26 +76,99 @@ func (c *Consumer) Start(ctx context.Context) {
 			Int64("offset", msg.Offset).
 			Msg("📥 Received build request payload")
 
-		// Process the build with a hard maximum timeout (e.g., 10 minutes)
-		// so a frozen Docker container doesn't lock up the worker forever.
+		// Extract the retry count (0 if not present)
+		retryCount := getRetryCount(msg.Headers)
+
+		if retryCount >= c.maxRetries {
+			// Max retries reached: send to dead‑letter queue and commit
+			log.Warn().
+				Str("project", string(msg.Key)).
+				Int("retry_count", retryCount).
+				Msg("Maximum retries reached – sending to dead‑letter queue")
+
+			dlqErr := c.dlqPublisher.PublishStatus(ctx,
+				string(msg.Key), "dead_letter", "",
+				"max retries exceeded, original error in previous log entries")
+			if dlqErr != nil {
+				log.Error().Err(dlqErr).Msg("Failed to publish to dead‑letter queue")
+			}
+
+			if commitErr := c.reader.CommitMessages(ctx, msg); commitErr != nil {
+				log.Error().Err(commitErr).Msg("Failed to commit offset after DLQ")
+			} else {
+				log.Info().Int64("offset", msg.Offset).Msg("✅ Offset committed after DLQ")
+			}
+			continue
+		}
+
+		// Process the build with a timeout
 		buildCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		err = c.handler.HandleMessage(buildCtx, msg.Value)
 		cancel()
 
 		if err != nil {
-			log.Warn().Err(err).Msg("Build pipeline finished with an error. (Offset will still be committed to prevent infinite retry loops)")
+			// Transient failure: increment retry count and re‑queue
+			log.Warn().
+				Err(err).
+				Int("current_retry", retryCount).
+				Msg("Build failed – re‑queuing with incremented retry count")
+
+			nextCount := retryCount + 1
+			retryMsg := kafka.Message{
+				Key:   msg.Key,
+				Value: msg.Value,
+				Headers: []kafka.Header{
+					{
+						Key:   "retry_count",
+						Value: []byte(strconv.Itoa(nextCount)),
+					},
+				},
+			}
+
+			if writeErr := c.retryWriter.WriteMessages(ctx, retryMsg); writeErr != nil {
+				log.Error().Err(writeErr).Msg("Failed to re‑queue message for retry")
+			}
+
+			// Commit the original offset so it isn’t re‑delivered
+			if commitErr := c.reader.CommitMessages(ctx, msg); commitErr != nil {
+				log.Error().Err(commitErr).Msg("Failed to commit original offset after re‑queueing")
+			} else {
+				log.Info().
+					Int64("offset", msg.Offset).
+					Int("next_retry", nextCount).
+					Msg("✅ Original offset committed, retry message queued")
+			}
+			continue
 		}
 
-		// Explicit manual commit — the build is fully processed and result published
-		if err := c.reader.CommitMessages(ctx, msg); err != nil {
-			log.Error().Err(err).Msg("Failed to commit kafka offset")
+		// Success – commit the offset
+		if commitErr := c.reader.CommitMessages(ctx, msg); commitErr != nil {
+			log.Error().Err(commitErr).Msg("Failed to commit offset")
 		} else {
 			log.Info().Int64("offset", msg.Offset).Msg("✅ Kafka offset committed safely")
 		}
 	}
 }
 
-// Close cleanly disconnects from the Kafka broker
+// Close gracefully shuts down the consumer and its internal producers.
 func (c *Consumer) Close() error {
-	return c.reader.Close()
+	err := c.reader.Close()
+	if c.retryWriter != nil {
+		if wErr := c.retryWriter.Close(); wErr != nil && err == nil {
+			err = wErr
+		}
+	}
+	return err
+}
+
+// getRetryCount reads the 'retry_count' header or returns 0.
+func getRetryCount(headers []kafka.Header) int {
+	for _, h := range headers {
+		if h.Key == "retry_count" {
+			if n, err := strconv.Atoi(string(h.Value)); err == nil {
+				return n
+			}
+		}
+	}
+	return 0
 }

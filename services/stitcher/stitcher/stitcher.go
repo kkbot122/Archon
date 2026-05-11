@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"log"
 
 	"github.com/kisna/archon/services/stitcher/library"
 	"github.com/kisna/archon/services/stitcher/manifest"
@@ -45,8 +46,11 @@ func (e *Engine) Stitch(m *manifest.Manifest, workspacePath string) error {
 			}
 		} else {
 			// Fallback for tests or missing templates: just write a dummy file
+			log.Printf("WARNING: template file %s not found, writing placeholder for node %s", srcPath, node.ID)
 			dummyContent := fmt.Sprintf("Node: %s\nType: %s", node.ID, brick.Type)
-			_ = os.WriteFile(destPath, []byte(dummyContent), 0644)
+			if err := os.WriteFile(destPath, []byte(dummyContent), 0644); err != nil {
+            return fmt.Errorf("failed to write fallback file for %s: %w", node.ID, err)
+     		}
 		}
 	}
 	

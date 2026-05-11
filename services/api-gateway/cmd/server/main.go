@@ -94,7 +94,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to AI Brain: %v", err)
 	}
-	defer aiClient.Close()
+	defer func() {
+    if err := aiClient.Close(); err != nil {
+        log.Printf("error closing gRPC client: %v", err)
+    }
+}()
 	log.Println("✅ gRPC Client ready (AI Brain Target:", aiBrainTarget, ")")
 
 	// 6. Wire up the GraphQL API

@@ -50,6 +50,7 @@ message RefineManifestRequest {
   string user_id = 2;          // For Auth/Audit logging
   string user_prompt = 3;      // e.g., "Swap my DB to MongoDB"
   ProjectManifest current_manifest = 4; 
+  string project_id = 5;
 }
 
 // The response sent from Python AI Brain -> Go Gateway

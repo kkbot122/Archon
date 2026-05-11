@@ -124,11 +124,55 @@
               "type": "folder",
               "children": [
                 {
-                  "name": "src",
+                  "name": ".pytest_cache",
                   "type": "folder",
                   "children": [
                     {
-                      "name": "grpcserver",
+                      "name": "v",
+                      "type": "folder"
+                    },
+                    {
+                      "name": ".gitignore",
+                      "type": "file"
+                    },
+                    {
+                      "name": "CACHEDIR.TAG",
+                      "type": "file"
+                    },
+                    {
+                      "name": "README.md",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "brain",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "graph",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "edges.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "graph.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "nodes.py",
+                          "type": "file"
+                        },
+                        {
+                          "name": "state.py",
+                          "type": "file"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "tools",
                       "type": "folder",
                       "children": [
                         {
@@ -136,39 +180,111 @@
                           "type": "file"
                         },
                         {
-                          "name": "agent.py",
+                          "name": "atomic_lookup.py",
                           "type": "file"
                         },
                         {
-                          "name": "server.py",
-                          "type": "file"
-                        },
-                        {
-                          "name": "worker.py",
+                          "name": "manifest_ops.py",
                           "type": "file"
                         }
                       ]
                     },
                     {
-                      "name": "proto",
-                      "type": "folder",
-                      "children": [
-                        {
-                          "name": "__init__.py",
-                          "type": "file"
-                        },
-                        {
-                          "name": "manifest_pb2.py",
-                          "type": "file"
-                        },
-                        {
-                          "name": "manifest_pb2_grpc.py",
-                          "type": "file"
-                        }
-                      ]
+                      "name": "agent.py",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "cmd",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "serve.py",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "grpc_server",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "__init__.py",
+                      "type": "file"
                     },
                     {
-                      "name": "main.py",
+                      "name": "agent.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "server.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "servicer.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "worker.py",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "proto",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "__init__.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "manifest_pb2.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "manifest_pb2_grpc.py",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "tests",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "test_graph_nodes.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "test_graph_routing.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "test_grpc_servicer.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "test_tools.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "test_validators.py",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "validators",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "__init__.py",
+                      "type": "file"
+                    },
+                    {
+                      "name": "manifest_schema.py",
                       "type": "file"
                     }
                   ]
@@ -204,15 +320,51 @@
                   ]
                 },
                 {
+                  "name": "db",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "queries.sql",
+                      "type": "file"
+                    },
+                    {
+                      "name": "schema.sql",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
                   "name": "internal",
                   "type": "folder",
                   "children": [
+                    {
+                      "name": "brain",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "client.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "client_test.go",
+                          "type": "file"
+                        }
+                      ]
+                    },
                     {
                       "name": "db",
                       "type": "folder",
                       "children": [
                         {
+                          "name": "db.go",
+                          "type": "file"
+                        },
+                        {
                           "name": "models.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "queries.sql.go",
                           "type": "file"
                         },
                         {
@@ -258,9 +410,39 @@
                       ]
                     },
                     {
+                      "name": "kafka",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "consumer.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "consumer_test.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "producer.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "producer_test.go",
+                          "type": "file"
+                        }
+                      ]
+                    },
+                    {
                       "name": "middleware",
                       "type": "folder",
                       "children": [
+                        {
+                          "name": "auth.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "auth_test.go",
+                          "type": "file"
+                        },
                         {
                           "name": "middleware.go",
                           "type": "file"
@@ -303,6 +485,10 @@
                 },
                 {
                   "name": "gqlgen.yml",
+                  "type": "file"
+                },
+                {
+                  "name": "sqlc.yml",
                   "type": "file"
                 }
               ]
@@ -359,6 +545,10 @@
                     },
                     {
                       "name": "handler.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "handler_test.go",
                       "type": "file"
                     }
                   ]
@@ -434,6 +624,10 @@
                       "type": "file"
                     },
                     {
+                      "name": "manifest_test.go",
+                      "type": "file"
+                    },
+                    {
                       "name": "validator.go",
                       "type": "file"
                     },
@@ -475,6 +669,10 @@
                     },
                     {
                       "name": "template.go",
+                      "type": "file"
+                    },
+                    {
+                      "name": "template_test.go",
                       "type": "file"
                     }
                   ]
@@ -537,7 +735,7 @@
     }
   ],
   "metadata": {
-    "generated": "2026-05-10T14:17:14.423Z",
+    "generated": "2026-05-11T18:28:50.288Z",
     "generator": "FileTree Pro Extension",
     "version": "0.2.0",
     "showIcons": false,

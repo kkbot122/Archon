@@ -1,7 +1,7 @@
 import threading
 import logging
-from grpcserver.server import serve
-from grpcserver.worker import start_worker
+from grpc_server.server import serve
+from grpc_server.worker import start_worker
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AI-Brain-Main")

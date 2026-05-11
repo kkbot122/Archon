@@ -86,8 +86,8 @@ class GraphState(TypedDict):
 # 4. Redis Setup
 # =================================================================
 
-redis_addr = os.getenv("REDIS_ADDR", "localhost:6379")
-redis_host, redis_port = redis_addr.split(":")
+redis_addr = os.getenv("REDIS_ADDR", "redis://localhost:6379/0")
+redis_host, redis_port = redis_addr.split(":", 1)
 rdb = redis.Redis(host=redis_host, port=int(redis_port), decode_responses=True)
 
 # =================================================================

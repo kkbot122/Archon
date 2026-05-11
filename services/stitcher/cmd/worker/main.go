@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
-	"fmt"
 
 	"github.com/kisna/archon/services/stitcher/builder"
 	"github.com/kisna/archon/services/stitcher/consumer"
@@ -46,25 +46,21 @@ func (p *Pipeline) ProcessBuild(ctx context.Context, projectID, versionHash, man
 	}
 
 	// 2. Setup Workspace
-	// FIX 1: Pass a single combined build ID string
 	buildID := fmt.Sprintf("%s-%s", projectID, versionHash)
 	ws, err := workspace.Create(buildID)
 	if err != nil {
 		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", "Failed to create workspace")
 		return err
 	}
-	// Always clean up the workspace when we're done
 	defer ws.Cleanup()
 
 	// 3. Stitch Templates
-	// FIX 2: Pass ws.Path (string) instead of the Workspace pointer
 	if err := p.engine.Stitch(m, ws.Path); err != nil {
 		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", "Failed to stitch architecture: "+err.Error())
 		return err
 	}
 
-	// 4. Build 
-	// FIX 3: Use RunBuild with the correct signature. We use 'alpine' to quickly verify the stitched files exist.
+	// 4. Build
 	buildResult, err := p.builder.RunBuild(ctx, buildID, ws, "alpine:latest", []string{"ls", "-la", "/workspace"})
 	if err != nil || !buildResult.Success {
 		errMsg := "Build failed"
@@ -97,7 +93,7 @@ func main() {
 	// 3. Initialize OpenTelemetry
 	otelEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if otelEndpoint == "" {
-		otelEndpoint = "localhost:4317" // Default Jaeger port
+		otelEndpoint = "localhost:4317"
 	}
 	tp, err := telemetry.InitTracer(ctx, otelEndpoint)
 	if err != nil {
@@ -135,7 +131,7 @@ func main() {
 	engine := stitcher.NewEngine(resolver)
 
 	pub := publisher.New(cfg.KafkaBrokers, "build.status")
-	
+
 	pipeline := &Pipeline{
 		engine:  engine,
 		builder: dockerBuilder,
@@ -145,7 +141,14 @@ func main() {
 	handler := consumer.NewHandler(pipeline)
 
 	brokers := strings.Split(cfg.KafkaBrokers, ",")
-	kafkaConsumer := consumer.New(brokers, cfg.ConsumerGroup, "build.requests", handler)
+
+	// UPDATED: Pass main + retry topics as a slice
+	kafkaConsumer := consumer.New(
+		brokers,
+		cfg.ConsumerGroup,
+		[]string{"build.requests", "build.requests.retry"},
+		handler,
+	)
 
 	// 8. Start the Consumer
 	go kafkaConsumer.Start(ctx)
@@ -154,7 +157,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	
+
 	log.Info().Msg("🛑 Stop signal received. Shutting down gracefully...")
 
 	// Cancel context to stop GC and Consumer loops

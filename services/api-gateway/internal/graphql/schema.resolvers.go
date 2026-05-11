@@ -61,6 +61,7 @@ func (r *mutationResolver) RefineArchitecture(ctx context.Context, projectID str
 		UserId:          "11111111-1111-1111-1111-111111111111", // Dummy user for now
 		CurrentManifest: currentPb,
 		UserPrompt:      prompt,
+		ProjectId:        projectID,
 	}
 
 	// 3. Call the AI Brain via gRPC!
@@ -102,8 +103,8 @@ func (r *mutationResolver) RefineArchitecture(ctx context.Context, projectID str
 	go func(project string, data string) {
 		// 1. Catch panics so the Gateway doesn't crash
 		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("⚠️ [PANIC RECOVERED] Redis Broadcast Panic: %v\n", r)
+			if rec := recover(); rec != nil {
+				fmt.Printf("⚠️ [PANIC RECOVERED] Redis Broadcast Panic: %v\n", rec)
 			}
 		}()
 

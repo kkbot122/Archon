@@ -295,6 +295,7 @@ type RefineManifestRequest struct {
 	UserId          string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`             // For Auth/Audit logging
 	UserPrompt      string                 `protobuf:"bytes,3,opt,name=user_prompt,json=userPrompt,proto3" json:"user_prompt,omitempty"` // e.g., "Swap my DB to MongoDB"
 	CurrentManifest *ProjectManifest       `protobuf:"bytes,4,opt,name=current_manifest,json=currentManifest,proto3" json:"current_manifest,omitempty"`
+	ProjectId       string                 `protobuf:"bytes,5,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -355,6 +356,13 @@ func (x *RefineManifestRequest) GetCurrentManifest() *ProjectManifest {
 		return x.CurrentManifest
 	}
 	return nil
+}
+
+func (x *RefineManifestRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
 }
 
 // The response sent from Python AI Brain -> Go Gateway
@@ -451,13 +459,15 @@ const file_proto_manifest_proto_rawDesc = "" +
 	"\bmetadata\x18\x01 \x01(\v2\x1c.archon.manifest.v1.MetadataR\bmetadata\x12:\n" +
 	"\x05nodes\x18\x02 \x03(\v2$.archon.manifest.v1.ArchitectureNodeR\x05nodes\x12@\n" +
 	"\vconnections\x18\x03 \x03(\v2\x1e.archon.manifest.v1.ConnectionR\vconnections\x12#\n" +
-	"\rfeature_flags\x18\x04 \x03(\tR\ffeatureFlags\"\xbc\x01\n" +
+	"\rfeature_flags\x18\x04 \x03(\tR\ffeatureFlags\"\xdb\x01\n" +
 	"\x15RefineManifestRequest\x12\x19\n" +
 	"\btrace_id\x18\x01 \x01(\tR\atraceId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vuser_prompt\x18\x03 \x01(\tR\n" +
 	"userPrompt\x12N\n" +
-	"\x10current_manifest\x18\x04 \x01(\v2#.archon.manifest.v1.ProjectManifestR\x0fcurrentManifest\"\xc1\x01\n" +
+	"\x10current_manifest\x18\x04 \x01(\v2#.archon.manifest.v1.ProjectManifestR\x0fcurrentManifest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x05 \x01(\tR\tprojectId\"\xc1\x01\n" +
 	"\x16RefineManifestResponse\x12\x19\n" +
 	"\btrace_id\x18\x01 \x01(\tR\atraceId\x12\x19\n" +
 	"\bis_valid\x18\x02 \x01(\bR\aisValid\x12!\n" +
