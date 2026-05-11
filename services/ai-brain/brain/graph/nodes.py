@@ -3,6 +3,7 @@ from typing import Dict, Any, List
 from brain.agent import get_architect_agent
 from brain.graph.state import GraphState
 from validators.manifest_schema import ManifestSchema
+from pydantic import ValidationError
 
 def call_gemini(user_prompt: str, errors: List[str]) -> Dict[str, Any]:
     agent = get_architect_agent()
