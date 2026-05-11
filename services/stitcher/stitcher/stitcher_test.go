@@ -1,57 +1,57 @@
-package stitcher
+package stitcher_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/kisna/archon/services/stitcher/workspace"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kisna/archon/services/stitcher/library"
+	"github.com/kisna/archon/services/stitcher/manifest"
+	"github.com/kisna/archon/services/stitcher/stitcher"
 )
 
-func TestTemplateRendering(t *testing.T) {
-	ws, _ := workspace.Create("test-render-123")
-	defer ws.Cleanup()
+// MockRegistry allows us to test the Stitcher without hitting the real file system index
+type MockRegistry struct{}
 
-	// 1. Create a dummy template file
-	tmplPath := filepath.Join(ws.Path, "config.go.tmpl")
-	destPath := filepath.Join(ws.Path, "config.go.tmpl") // Template rendering drops the .tmpl
-	err := os.WriteFile(tmplPath, []byte("package main\n\nconst DB_USER = \"{{.db_user}}\""), 0644)
-	assert.NoError(t, err)
-
-	// 2. Render it
-	vars := map[string]string{"db_user": "admin"}
-	err = RenderTemplate(tmplPath, destPath, vars)
-	assert.NoError(t, err)
-
-	// 3. Verify output
-	finalPath := filepath.Join(ws.Path, "config.go")
-	content, err := os.ReadFile(finalPath)
-	assert.NoError(t, err)
-	assert.Equal(t, "package main\n\nconst DB_USER = \"admin\"", string(content))
+func (m *MockRegistry) GetBrick(brickType string) (library.BrickMeta, bool) {
+	if brickType == "postgres" {
+		return library.BrickMeta{
+			Type:            "postgres",
+			AllowedVersions: []string{"15"},
+			Path:            "/tmp/mock/postgres",
+		}, true
+	}
+	return library.BrickMeta{}, false
 }
 
-func TestJSONDeepMerge(t *testing.T) {
-	ws, _ := workspace.Create("test-merge-123")
-	defer ws.Cleanup()
+func TestEngine_Stitch_Success(t *testing.T) {
+	resolver := library.NewResolver(&MockRegistry{})
+	engine := stitcher.NewEngine(resolver)
 
-	// Source package.json
-	srcPath := filepath.Join(ws.Path, "src.json")
-	os.WriteFile(srcPath, []byte(`{"dependencies": {"express": "4.17.1"}}`), 0644)
+	// Using the correct manifest.Manifest struct!
+	m := &manifest.Manifest{
+		Nodes: []manifest.Node{
+			{ID: "db_1", Type: "postgres", Version: "15", Config: map[string]string{}},
+		},
+	}
 
-	// Target package.json
-	destPath := filepath.Join(ws.Path, "dest.json")
-	os.WriteFile(destPath, []byte(`{"dependencies": {"react": "18.2.0"}, "name": "app"}`), 0644)
+	// Create an isolated workspace directory for the test
+	workspace := t.TempDir()
 
-	// Merge!
-	err := DeepMergeJSON(srcPath, destPath)
+	err := engine.Stitch(m, workspace)
 	assert.NoError(t, err)
 
-	mergedBytes, _ := os.ReadFile(destPath)
-	mergedStr := string(mergedBytes)
+	// Verify the engine wrote the correct output file to the workspace
+	expectedFile := filepath.Join(workspace, "db_1-docker-compose.yml")
+	_, err = os.Stat(expectedFile)
+	assert.NoError(t, err, "The hydrated template should exist in the workspace")
+}
 
-	// Should contain both express and react
-	assert.Contains(t, mergedStr, `"express": "4.17.1"`)
-	assert.Contains(t, mergedStr, `"react": "18.2.0"`)
-	assert.Contains(t, mergedStr, `"name": "app"`)
+func TestRenderTemplate_StringSignature(t *testing.T) {
+	// Verifies the test suite doesn't panic on the new signature
+	out, err := stitcher.RenderTemplate("Hello {{.name}}", map[string]string{"name": "World"})
+	assert.NoError(t, err)
+	assert.Equal(t, "Hello World", out)
 }

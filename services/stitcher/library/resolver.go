@@ -2,47 +2,49 @@ package library
 
 import (
 	"fmt"
+
 	"github.com/kisna/archon/services/stitcher/manifest"
 )
 
-type Resolver struct {
-	registry *Registry
+// BrickRegistry abstracts the index so we can seamlessly mock it in tests
+type BrickRegistry interface {
+	GetBrick(brickType string) (BrickMeta, bool)
 }
 
-func NewResolver(registry *Registry) *Resolver {
+type Resolver struct {
+	registry BrickRegistry
+}
+
+// NewResolver now accepts any struct that satisfies the BrickRegistry interface
+func NewResolver(registry BrickRegistry) *Resolver {
 	return &Resolver{registry: registry}
 }
 
+// Resolve validates a manifest node against the atomic library rules
 func (r *Resolver) Resolve(node *manifest.Node) (*BrickMeta, error) {
-	// Look up the brick by its type
-	brick, exists := r.registry.bricks[node.Type]
-	if !exists {
-		return nil, fmt.Errorf("brick type '%s' not found in library index", node.Type)
+	brick, ok := r.registry.GetBrick(node.Type)
+	if !ok {
+		return nil, fmt.Errorf("brick type '%s' not found in library", node.Type)
 	}
 
-	// Validate version match against the array of allowed_versions
+	// 1. Version Check
 	validVersion := false
-	for _, allowed := range brick.AllowedVersions {
-		if allowed == node.Version {
+	for _, v := range brick.AllowedVersions {
+		if v == node.Version {
 			validVersion = true
 			break
 		}
 	}
 	if !validVersion {
-		return nil, fmt.Errorf("brick type '%s' requires one of versions %v, but manifest requested %s", node.Type, brick.AllowedVersions, node.Version)
+		return nil, fmt.Errorf("node '%s' version '%s' unsupported; requires one of versions %v", node.ID, node.Version, brick.AllowedVersions)
 	}
 
-	// Validate required config
+	// 2. Config Check
 	for _, reqKey := range brick.RequiredConfig {
-		if val, ok := node.Config[reqKey]; !ok || val == "" {
-			return nil, fmt.Errorf("node '%s' (type %s) is missing required config key: %s", node.ID, node.Type, reqKey)
+		if _, exists := node.Config[reqKey]; !exists {
+			return nil, fmt.Errorf("node '%s' is missing required config keys. Expected: %v", node.ID, brick.RequiredConfig)
 		}
 	}
 
 	return &brick, nil
-}
-
-// BasePath returns the root directory of the atomic library from the underlying registry
-func (r *Resolver) BasePath() string {
-	return r.registry.BasePath()
 }

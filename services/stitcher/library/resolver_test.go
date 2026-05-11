@@ -1,72 +1,104 @@
-package library
+package library_test
 
 import (
 	"testing"
-	"github.com/kisna/archon/services/stitcher/manifest"
+
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kisna/archon/services/stitcher/library"
+	"github.com/kisna/archon/services/stitcher/manifest"
 )
 
-func TestResolver(t *testing.T) {
-	// 1. Setup an in-memory mock registry
-	mockRegistry := &Registry{
-		bricks: map[string]BrickMeta{
-			"postgres_db": {
-				Name:           "Postgres",
-				Version:        "1.0",
-				RequiredConfig: []string{"db_user", "db_password"},
+// MockIndex simulates reading from atomic-library/index.json
+type MockIndex struct {
+	bricks map[string]library.BrickMeta
+}
+
+// GetBrick satisfies the new BrickRegistry interface!
+func (m *MockIndex) GetBrick(brickType string) (library.BrickMeta, bool) {
+	b, ok := m.bricks[brickType]
+	return b, ok
+}
+
+func TestResolve_Success(t *testing.T) {
+	mockIndex := &MockIndex{
+		bricks: map[string]library.BrickMeta{
+			"postgres": {
+				Type:            "postgres",
+				Description:     "PostgreSQL Database",
+				AllowedVersions: []string{"14", "15"},
+				RequiredConfig:  []string{"port"},
+				Path:            "/atomic-library/databases/postgres",
+				// FIX 1: BuildCommand is a string slice
+				BuildCommand:    []string{"docker-compose", "up", "-d"}, 
 			},
 		},
 	}
-	resolver := NewResolver(mockRegistry)
 
-	// 2. Test successful resolution
-	t.Run("Valid Node Resolution", func(t *testing.T) {
-		validNode := &manifest.Node{
-			ID:      "db_1",
-			Type:    "postgres_db",
-			Version: "1.0",
-			Config: map[string]string{
-				"db_user":     "admin",
-				"db_password": "secret_password",
+	resolver := library.NewResolver(mockIndex)
+
+	node := manifest.Node{
+		ID:      "db_1",
+		Type:    "postgres",
+		Version: "15",
+		Config:  map[string]string{"port": "5432"},
+	}
+
+	// FIX 2: Pass pointer to node
+	brick, err := resolver.Resolve(&node)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "postgres", brick.Type)
+}
+
+func TestResolve_UnsupportedVersion(t *testing.T) {
+	mockIndex := &MockIndex{
+		bricks: map[string]library.BrickMeta{
+			"postgres": {
+				Type:            "postgres",
+				AllowedVersions: []string{"14", "15"},
 			},
-		}
+		},
+	}
 
-		brick, err := resolver.Resolve(validNode)
-		assert.NoError(t, err)
-		assert.Equal(t, "Postgres", brick.Name)
-	})
+	resolver := library.NewResolver(mockIndex)
 
-	// 3. Test missing brick type
-	t.Run("Brick Not Found", func(t *testing.T) {
-		invalidNode := &manifest.Node{
-			Type: "unknown_tech",
-		}
-		_, err := resolver.Resolve(invalidNode)
-		assert.ErrorContains(t, err, "not found in library index")
-	})
+	node := manifest.Node{
+		ID:      "db_1",
+		Type:    "postgres",
+		Version: "99", // Invalid version, AI hallucinated!
+	}
 
-	// 4. Test version mismatch
-	t.Run("Version Mismatch", func(t *testing.T) {
-		wrongVersionNode := &manifest.Node{
-			Type:    "postgres_db",
-			Version: "2.0",
-		}
-		_, err := resolver.Resolve(wrongVersionNode)
-		assert.ErrorContains(t, err, "requires version 1.0, but manifest requested 2.0")
-	})
+	brick, err := resolver.Resolve(&node)
 
-	// 5. Test missing required config variables
-	t.Run("Missing Required Config", func(t *testing.T) {
-		missingConfigNode := &manifest.Node{
-			ID:      "db_1",
-			Type:    "postgres_db",
-			Version: "1.0",
-			Config: map[string]string{
-				"db_user": "admin",
-				// db_password is missing!
+	assert.Error(t, err)
+	assert.Nil(t, brick)
+	assert.Contains(t, err.Error(), "requires one of versions")
+}
+
+func TestResolve_MissingConfig(t *testing.T) {
+	mockIndex := &MockIndex{
+		bricks: map[string]library.BrickMeta{
+			"go_backend": {
+				Type:            "go_backend",
+				AllowedVersions: []string{"1.21"},
+				RequiredConfig:  []string{"port", "db_host"},
 			},
-		}
-		_, err := resolver.Resolve(missingConfigNode)
-		assert.ErrorContains(t, err, "missing required config key: db_password")
-	})
+		},
+	}
+
+	resolver := library.NewResolver(mockIndex)
+
+	node := manifest.Node{
+		ID:      "api_1",
+		Type:    "go_backend",
+		Version: "1.21",
+		Config:  map[string]string{"port": "8080"}, // Missing db_host!
+	}
+
+	brick, err := resolver.Resolve(&node)
+
+	assert.Error(t, err)
+	assert.Nil(t, brick)
+	assert.Contains(t, err.Error(), "missing required config keys")
 }

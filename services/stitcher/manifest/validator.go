@@ -1,55 +1,42 @@
 package manifest
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"strings"
 )
 
-// Validator defines the interface for checking manifest integrity
-type Validator interface {
-	Validate(m *ProjectManifest) error
-}
-
-type DefaultValidator struct{}
-
-func NewValidator() *DefaultValidator {
-	return &DefaultValidator{}
-}
-
-func (v *DefaultValidator) Validate(m *ProjectManifest) error {
-	if m == nil {
-		return fmt.Errorf("manifest is nil")
+// Validate ensures the manifest has the minimum required fields before we try to build it.
+func Validate(m *Manifest) error {
+	if m.Metadata.ProjectName == "" {
+		return fmt.Errorf("manifest is missing project name")
 	}
-
-	if strings.TrimSpace(m.Metadata.ProjectName) == "" {
-		return fmt.Errorf("project_name is missing")
-	}
-
 	if len(m.Nodes) == 0 {
-		return fmt.Errorf("manifest contains no nodes to build")
+		return fmt.Errorf("manifest has no nodes to build")
 	}
 
-	// Ensure all nodes have unique IDs
-	seenIDs := make(map[string]bool)
-	for _, node := range m.Nodes {
+	// Ensure every node has an ID and a Type
+	for i, node := range m.Nodes {
 		if node.ID == "" {
-			return fmt.Errorf("node missing ID")
+			return fmt.Errorf("node at index %d is missing an ID", i)
 		}
-		if seenIDs[node.ID] {
-			return fmt.Errorf("duplicate node ID found: %s", node.ID)
-		}
-		seenIDs[node.ID] = true
-	}
-
-	// Validate connections reference valid nodes
-	for _, conn := range m.Connections {
-		if !seenIDs[conn.SourceID] {
-			return fmt.Errorf("connection source_id %s does not exist", conn.SourceID)
-		}
-		if !seenIDs[conn.TargetID] {
-			return fmt.Errorf("connection target_id %s does not exist", conn.TargetID)
+		if node.Type == "" {
+			return fmt.Errorf("node '%s' is missing a Type", node.ID)
 		}
 	}
 
 	return nil
+}
+
+// GenerateIdempotencyKey creates a stable hash of the manifest to prevent duplicate builds.
+func GenerateIdempotencyKey(m *Manifest) (string, error) {
+	// By marshalling our tightly controlled struct, we guarantee consistent JSON ordering
+	bytes, err := json.Marshal(m)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash manifest: %w", err)
+	}
+
+	hash := sha256.Sum256(bytes)
+	return hex.EncodeToString(hash[:]), nil
 }

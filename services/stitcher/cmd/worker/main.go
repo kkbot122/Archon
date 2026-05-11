@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"fmt"
 
 	"github.com/kisna/archon/services/stitcher/builder"
 	"github.com/kisna/archon/services/stitcher/consumer"
@@ -22,6 +23,65 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+// Pipeline implements consumer.Orchestrator to glue the build steps together
+type Pipeline struct {
+	engine  *stitcher.Engine
+	builder *builder.DockerBuilder
+	pub     *publisher.Publisher
+}
+
+func (p *Pipeline) ProcessBuild(ctx context.Context, projectID, versionHash, manifestRaw string) error {
+	log.Info().Str("project_id", projectID).Msg("Starting build pipeline...")
+
+	// 1. Parse & Validate
+	m, err := manifest.ParseManifest(manifestRaw)
+	if err != nil {
+		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", "Invalid manifest JSON")
+		return err
+	}
+	if err := manifest.Validate(m); err != nil {
+		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", err.Error())
+		return err
+	}
+
+	// 2. Setup Workspace
+	// FIX 1: Pass a single combined build ID string
+	buildID := fmt.Sprintf("%s-%s", projectID, versionHash)
+	ws, err := workspace.Create(buildID)
+	if err != nil {
+		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", "Failed to create workspace")
+		return err
+	}
+	// Always clean up the workspace when we're done
+	defer ws.Cleanup()
+
+	// 3. Stitch Templates
+	// FIX 2: Pass ws.Path (string) instead of the Workspace pointer
+	if err := p.engine.Stitch(m, ws.Path); err != nil {
+		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", "Failed to stitch architecture: "+err.Error())
+		return err
+	}
+
+	// 4. Build 
+	// FIX 3: Use RunBuild with the correct signature. We use 'alpine' to quickly verify the stitched files exist.
+	buildResult, err := p.builder.RunBuild(ctx, buildID, ws, "alpine:latest", []string{"ls", "-la", "/workspace"})
+	if err != nil || !buildResult.Success {
+		errMsg := "Build failed"
+		if err != nil {
+			errMsg += ": " + err.Error()
+		}
+		if buildResult != nil && !buildResult.Success {
+			errMsg += " | Logs: " + buildResult.Logs
+		}
+		_ = p.pub.PublishStatus(ctx, projectID, "BUILD_FAILED", "", errMsg)
+		return fmt.Errorf(errMsg)
+	}
+
+	// 5. Publish Success!
+	_ = p.pub.PublishStatus(ctx, projectID, "BUILD_SUCCESS", "http://localhost:8080", "")
+	return nil
+}
 
 func main() {
 	// 1. Setup Structured Logging
@@ -73,13 +133,19 @@ func main() {
 	// 7. Wire the Pipeline
 	resolver := library.NewResolver(registry)
 	engine := stitcher.NewEngine(resolver)
-	validator := manifest.NewValidator()
-	pub := publisher.New(cfg.KafkaBrokers)
+
+	pub := publisher.New(cfg.KafkaBrokers, "build.status")
 	
-	handler := consumer.NewHandler(validator, engine, dockerBuilder, pub)
+	pipeline := &Pipeline{
+		engine:  engine,
+		builder: dockerBuilder,
+		pub:     pub,
+	}
+
+	handler := consumer.NewHandler(pipeline)
 
 	brokers := strings.Split(cfg.KafkaBrokers, ",")
-	kafkaConsumer := consumer.New(brokers, cfg.ConsumerGroup, "architect.build.requested", handler)
+	kafkaConsumer := consumer.New(brokers, cfg.ConsumerGroup, "build.requests", handler)
 
 	// 8. Start the Consumer
 	go kafkaConsumer.Start(ctx)

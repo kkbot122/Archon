@@ -1,38 +1,29 @@
 package stitcher
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+	"bytes"
 	"strings"
 	"text/template"
 )
 
-// RenderTemplate reads a .tmpl file, injects the AI variables, and writes the pure code file
-func RenderTemplate(srcPath string, destPath string, configVars map[string]string) error {
-	content, err := os.ReadFile(srcPath)
+// RenderTemplate parses a raw template string and injects config variables.
+func RenderTemplate(tmplStr string, configVars map[string]string) (string, error) {
+	// FIX: Sanitize keys. Convert "db-host" into "db_host" so {{.db_host}} evaluates correctly.
+	safeVars := make(map[string]string)
+	for k, v := range configVars {
+		safeKey := strings.ReplaceAll(k, "-", "_")
+		safeVars[safeKey] = v
+	}
+
+	t, err := template.New("file").Parse(tmplStr)
 	if err != nil {
-		return fmt.Errorf("failed to read template %s: %w", srcPath, err)
+		return "", err
 	}
 
-	tmpl, err := template.New(filepath.Base(srcPath)).Parse(string(content))
-	if err != nil {
-		return fmt.Errorf("failed to parse template syntax: %w", err)
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, safeVars); err != nil {
+		return "", err
 	}
 
-	// Remove the .tmpl extension for the final output
-	finalDest := strings.TrimSuffix(destPath, ".tmpl")
-	
-	outFile, err := os.Create(finalDest)
-	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
-	}
-	defer outFile.Close()
-
-	// Execute the template with the config variables map
-	if err := tmpl.Execute(outFile, configVars); err != nil {
-		return fmt.Errorf("failed to inject variables into template: %w", err)
-	}
-
-	return nil
+	return buf.String(), nil
 }

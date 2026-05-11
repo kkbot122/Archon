@@ -43,3 +43,9 @@ func LoadRegistry(libraryPath string) (*Registry, error) {
 func (r *Registry) BasePath() string {
 	return r.basePath
 }
+
+// GetBrick satisfies the BrickRegistry interface for the Resolver
+func (r *Registry) GetBrick(brickType string) (BrickMeta, bool) {
+	b, ok := r.bricks[brickType]
+	return b, ok
+}
