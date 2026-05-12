@@ -96,7 +96,7 @@ jobs:
           DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable
           TEST_DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable
           AI_BRAIN_TARGET: localhost:50051
-          REDIS_ADDR: redis://localhost:6379/0
+          REDIS_ADDR: localhost:6379
           KAFKA_BROKER: localhost:9092
         run: |
           cd services/api-gateway
