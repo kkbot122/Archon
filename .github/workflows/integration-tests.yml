@@ -64,7 +64,9 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Regenerate protobuf stubs
-        run: make proto
+        run: |
+          make proto
+          sed -i 's/^import manifest_pb2 as/from . import manifest_pb2 as/' services/ai-brain/proto/manifest_pb2_grpc.py
 
       # ---------- Start AI Brain with mock LLM ----------
       - name: Start AI Brain (mock)
