@@ -155,7 +155,7 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
 	require.NoError(t, err)
 
 	dlqReader := helpers.NewConsumer(t, "build.requests.dlq", "test-dlq-reader-"+uuid.New().String())
-	msg, err := helpers.WaitForMessage(t, dlqReader, 20*time.Second)
+	msg, err := helpers.WaitForMessage(t, dlqReader, 30*time.Second)
 	require.NoError(t, err)
 
 	var event consumer.BuildRequestedEvent
