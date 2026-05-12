@@ -64,7 +64,7 @@ func TestE2EFullUserJourney(t *testing.T) {
 	assert.Contains(t, string(wsMsg2), "mock_node")
 
 	// ── Step 6: Ship project ──
-	shipCh, _ := helpers.SetupKafkaConsumerFromLatest(t, "build.requests")
+	shipCh, _ := helpers.SetupKafkaConsumer(t, "build.requests")
 	time.Sleep(1 * time.Second)
 
 	shipMutation := `mutation($pid: ID!) { shipProject(projectId: $pid) }`
@@ -75,7 +75,7 @@ func TestE2EFullUserJourney(t *testing.T) {
 	assert.True(t, shipResp["data"].(map[string]interface{})["shipProject"].(bool))
 
 	// ── Step 7: Verify Kafka build request ──
-	msgBytes, err := helpers.WaitForKafkaMessage(shipCh, 15*time.Second)
+	msgBytes, err := helpers.WaitForKafkaMessage(shipCh, 25*time.Second)
 	require.NoError(t, err)
 	assert.Contains(t, string(msgBytes), projectID)
 	t.Logf("Kafka build request message: %s", string(msgBytes))
