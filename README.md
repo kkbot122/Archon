@@ -1,4 +1,5 @@
 # Archon : Architect-to-Code Engine
+[![Integration Tests](https://github.com/kkbot122/Archon/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/kisna/Archon/actions/workflows/integration-tests.yml)
 > An AI-driven, event-based distributed orchestrator that transforms natural language requirements into production-ready, validated architectures.
 
 ## 📖 Overview
@@ -119,3 +120,46 @@ When the user clicks "Ship":
 | **State / Cache** | PostgreSQL, Redis | Persistent manifest storage and WebSocket Pub/Sub state. |
 | **Internal RPC** | gRPC (Protocol Buffers) | Type-safe, low-latency inter-service communication. |
 | **Observability** | OpenTelemetry, Jaeger | Distributed tracing across Go, Python, and Kafka boundaries. |
+
+[![Integration Tests](https://github.com/kkbot122/Archon/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/kisna/Archon/actions/workflows/integration-tests.yml)
+
+## 🧪 Testing
+
+The project includes a comprehensive integration test suite that verifies every service boundary (GraphQL → gRPC → Kafka → Docker) using real infrastructure (Postgres, Redis, Kafka, Jaeger). All tests run automatically on every push and pull request via GitHub Actions.
+
+### Running tests locally
+
+**Unit tests** (fast, no external dependencies):
+```bash
+make test-unit
+```
+
+**Integration tests** (requires `docker-compose up -d` and all services):
+```bash
+make test-integration
+```
+
+**Everything** (unit + integration):
+```bash
+make test-all
+```
+
+The integration suite covers 8 layers:
+
+| Layer | Scope | Tests |
+|-------|-------|-------|
+| 1 | Infrastructure connectivity | 4 |
+| 2 | Database (PostgreSQL) | 5 |
+| 3 | gRPC contracts (AI Brain) | 5 |
+| 4 | GraphQL API | 4 |
+| 5 | Kafka event pipeline | 4 |
+| 6 | WebSocket / Redis Pub‑Sub | 3 |
+| 7 | Shadow Builder (Docker) | 4 |
+| 8 | End‑to‑end smoke test | 1 |
+| **Total** | | **30** |
+
+All tests pass with a mock LLM (set `GEMINI_MODEL=mock` before starting the AI Brain), ensuring no real API calls during CI.
+
+---
+
+Now your README shows live build status and tells contributors exactly how to replicate the full test suite locally. Need anything else?
