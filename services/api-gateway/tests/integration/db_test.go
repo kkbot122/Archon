@@ -8,32 +8,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kisna/archon/services/api-gateway/tests/integration/helpers"
 )
 
-// dummyUserID matches the hardcoded mock user injected by the auth middleware.
-var dummyUserID = uuid.MustParse("11111111-1111-1111-1111-111111111111")
-
-// ensureDummyUser inserts the well‑known mock user if it doesn't already exist.
-func ensureDummyUser(t *testing.T, pool *pgxpool.Pool) {
-	t.Helper()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO users (id, email) VALUES ($1, 'mock@archon.dev') ON CONFLICT DO NOTHING`,
-		dummyUserID,
-	)
-	require.NoError(t, err, "failed to ensure dummy user exists")
-}
-
 func TestCreateProjectInsertsRow(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
-	ensureDummyUser(t, pool)
+	helpers.EnsureDummyUser(t, pool)
 
 	name := "TestProject_Create"
-	p, err := repo.CreateProject(context.Background(), dummyUserID, name)
+	p, err := repo.CreateProject(context.Background(), uuid.MustParse("11111111-1111-1111-1111-111111111111"), name)
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, p.ID, "project ID should be a valid UUID")
 	assert.Equal(t, name, p.Name)
@@ -41,14 +27,14 @@ func TestCreateProjectInsertsRow(t *testing.T) {
 
 func TestSaveManifestInsertsRow(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
-	ensureDummyUser(t, pool)
+	helpers.EnsureDummyUser(t, pool)
 
-	proj, err := repo.CreateProject(context.Background(), dummyUserID, "TestProject_SaveManifest")
+	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	proj, err := repo.CreateProject(context.Background(), userID, "TestProject_SaveManifest")
 	require.NoError(t, err)
 
 	versionHash := "abc123"
-	manifestJSON := `{"nodes":[{"id":"db1","type":"postgres"}]}`
-	manifestData := []byte(manifestJSON)
+	manifestData := []byte(`{"nodes":[{"id":"db1","type":"postgres"}]}`)
 
 	err = repo.SaveManifest(context.Background(), proj.ID, versionHash, manifestData)
 	require.NoError(t, err)
@@ -57,15 +43,15 @@ func TestSaveManifestInsertsRow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	assert.Equal(t, versionHash, m.VersionHash)
-	// Compare JSON semantics, not bytes
-	assert.JSONEq(t, manifestJSON, string(m.ManifestData))
+	assert.JSONEq(t, `{"nodes":[{"id":"db1","type":"postgres"}]}`, string(m.ManifestData))
 }
 
 func TestGetLatestManifestReturnsMostRecent(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
-	ensureDummyUser(t, pool)
+	helpers.EnsureDummyUser(t, pool)
 
-	proj, err := repo.CreateProject(context.Background(), dummyUserID, "TestProject_LatestManifest")
+	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	proj, err := repo.CreateProject(context.Background(), userID, "TestProject_LatestManifest")
 	require.NoError(t, err)
 
 	hash1 := "hash1"
@@ -83,7 +69,6 @@ func TestGetLatestManifestReturnsMostRecent(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, latest)
 	assert.Equal(t, hash2, latest.VersionHash)
-	// Compare JSON semantics
 	assert.JSONEq(t, `{"version":2}`, string(latest.ManifestData))
 }
 
@@ -97,12 +82,13 @@ func TestGetLatestManifestReturnsNilForNewProject(t *testing.T) {
 
 func TestCreateProjectWithManifestIsAtomic(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
-	ensureDummyUser(t, pool)
+	helpers.EnsureDummyUser(t, pool)
 
+	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	name := "TestProject_Atomic"
 	manifestData := []byte(`{"metadata":{"project_name":"` + name + `"}}`)
 
-	p, err := repo.CreateProjectWithManifest(context.Background(), dummyUserID, name, manifestData)
+	p, err := repo.CreateProjectWithManifest(context.Background(), userID, name, manifestData)
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -122,7 +108,7 @@ func TestCreateProjectWithManifestIsAtomic(t *testing.T) {
 	projID := uuid.New()
 	_, err = tx.Exec(context.Background(),
 		"INSERT INTO projects (id, user_id, name) VALUES ($1, $2, $3)",
-		projID, dummyUserID, "RollbackTest")
+		projID, userID, "RollbackTest")
 	require.NoError(t, err)
 	tx.Rollback(context.Background())
 

@@ -17,6 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"github.com/kisna/archon/services/api-gateway/internal/db"
+	"github.com/stretchr/testify/require"
 )
 
 // getEnv fetches an environment variable or returns a default value
@@ -109,6 +110,22 @@ func WaitForKafkaMessage(ch chan []byte, timeout time.Duration) ([]byte, error) 
 	}
 }
 
+// WaitForKafkaMessageContaining waits for a message that contains substr.
+func WaitForKafkaMessageContaining(ch chan []byte, substr string, timeout time.Duration) ([]byte, error) {
+    deadline := time.After(timeout)
+    for {
+        select {
+        case msg := <-ch:
+            if strings.Contains(string(msg), substr) {
+                return msg, nil
+            }
+            // Discard messages that don't match
+        case <-deadline:
+            return nil, fmt.Errorf("timeout waiting for Kafka message containing %q", substr)
+        }
+    }
+}
+
 // SetupWebSocketClient connects to the WebSocket endpoint for a given project.
 func SetupWebSocketClient(t *testing.T, projectID string) *websocket.Conn {
 	u := fmt.Sprintf("ws://localhost:4000/ws?projectId=%s", projectID)
@@ -181,4 +198,42 @@ func MustPublishKafkaEvent(t *testing.T, topic string, event interface{}) {
 	if err := writer.WriteMessages(context.Background(), kafka.Message{Value: payload}); err != nil {
 		t.Fatalf("Failed to write to Kafka: %v", err)
 	}
+}
+
+// EnsureDummyUser inserts the mock user used by the gateway.
+// This must be called before any test that relies on the user existing.
+func EnsureDummyUser(t *testing.T, pool *pgxpool.Pool) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO users (id, email) VALUES ('11111111-1111-1111-1111-111111111111', 'mock@archon.dev') ON CONFLICT DO NOTHING`,
+	)
+	require.NoError(t, err, "failed to ensure dummy user exists")
+}
+
+// SetupKafkaConsumerFromLatest creates a Kafka reader that only picks up messages
+// written after the consumer starts (StartOffset = LastOffset).
+func SetupKafkaConsumerFromLatest(t *testing.T, topic string) (chan []byte, *kafka.Reader) {
+	broker := GetEnv("TEST_KAFKA_BROKER", "127.0.0.1:9092")
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:     []string{broker},
+		Topic:       topic,
+		GroupID:     "test-consumer-" + t.Name(),
+		StartOffset: kafka.LastOffset, // <-- only new messages
+		MaxWait:     time.Second,
+	})
+	ch := make(chan []byte, 10)
+	go func() {
+		for {
+			msg, err := reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Printf("Kafka consumer error: %v", err)
+				return
+			}
+			ch <- msg.Value
+		}
+	}()
+	t.Cleanup(func() {
+		reader.Close()
+	})
+	return ch, reader
 }
