@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"io"
 
 	"github.com/rs/zerolog/log"
 	"github.com/segmentio/kafka-go"
@@ -62,13 +63,13 @@ func (c *Consumer) Start(ctx context.Context) {
 	for {
 		msg, err := c.reader.FetchMessage(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				log.Info().Msg("Consumer context canceled, shutting down gracefully.")
-				return
-			}
-			log.Error().Err(err).Msg("Error fetching Kafka message")
-			continue
-		}
+    if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
+        log.Info().Msg("Consumer context canceled or reader closed, shutting down loop.")
+        return
+    }
+    log.Error().Err(err).Msg("Error fetching Kafka message")
+    continue
+}
 
 		log.Info().
 			Str("topic", msg.Topic).
