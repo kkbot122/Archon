@@ -1,0 +1,119 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      # We manage our own Docker Compose instead of using GitHub service containers
+      # to ensure exact replica of local setup.
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---------- Infrastructure via Docker Compose ----------
+      - name: Start Docker Compose
+        run: |
+          docker-compose up -d
+          # Wait for health checks
+          for i in {1..30}; do
+            if docker-compose ps | grep -q "healthy"; then
+              echo "All services healthy"
+              break
+            fi
+            sleep 2
+          done
+
+      # ---------- Go setup ----------
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: |
+            go.work.sum
+            services/api-gateway/go.sum
+            services/stitcher/go.sum
+            internal/go.sum
+
+      - name: Sync Go workspace
+        run: go work sync
+
+      # ---------- Python setup ----------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Poetry
+        run: |
+          pip install poetry
+          cd services/ai-brain
+          poetry install
+
+      # ---------- Protobuf generation (ensure stubs are fresh) ----------
+      - name: Install protoc
+        run: sudo apt-get install -y protobuf-compiler
+
+      - name: Install protoc-gen-go and protoc-gen-go-grpc
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Regenerate protobuf stubs
+        run: make proto
+
+      # ---------- Start AI Brain with mock LLM ----------
+      - name: Start AI Brain (mock)
+        run: |
+          cd services/ai-brain
+          export GEMINI_MODEL=mock
+          export REDIS_URL=redis://localhost:6379/0
+          export ATOMIC_LIBRARY_PATH=../../atomic-library/index.json
+          poetry run python -m grpc_server.server &
+          sleep 3  # give it time to boot
+
+      # ---------- Run integration tests ----------
+      - name: Run AI Brain integration tests
+        run: |
+          cd services/ai-brain
+          poetry run pytest tests/integration/ -v
+
+      - name: Run API Gateway integration tests
+        env:
+          DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable
+          TEST_DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable
+          AI_BRAIN_TARGET: localhost:50051
+          REDIS_ADDR: redis://localhost:6379/0
+          KAFKA_BROKER: localhost:9092
+        run: |
+          # Start the API Gateway in the background
+          cd services/api-gateway
+          go run ./cmd/server/main.go &
+          sleep 5
+          # Run integration tests
+          go test -tags=integration -v ./tests/integration/
+
+      - name: Run Stitcher integration tests
+        env:
+          KAFKA_BROKER: localhost:9092
+          KAFKA_CONSUMER_GROUP: archon-stitcher-ci
+          ATOMIC_LIBRARY_PATH: ../../atomic-library
+          OTEL_EXPORTER_OTLP_ENDPOINT: localhost:4317
+        run: |
+          cd services/stitcher
+          # The tests will start their own consumer, so we don't run the worker.
+          # Use -p=1 to avoid parallel Kafka consumer conflicts.
+          go test -tags=integration -v -p=1 ./tests/integration/
+
+      # ---------- Cleanup ----------
+      - name: Stop Docker Compose
+        if: always()
+        run: docker-compose down -v
