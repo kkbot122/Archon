@@ -237,3 +237,13 @@ func SetupKafkaConsumerFromLatest(t *testing.T, topic string) (chan []byte, *kaf
 	})
 	return ch, reader
 }
+
+// ReadWebSocketMessage reads one text message from the WebSocket connection.
+// It returns the message payload or an error if the timeout expires.
+func ReadWebSocketMessage(t *testing.T, conn *websocket.Conn, timeout time.Duration) ([]byte, error) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	conn.SetReadDeadline(deadline)
+	_, msg, err := conn.ReadMessage()
+	return msg, err
+}
