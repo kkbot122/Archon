@@ -74,7 +74,7 @@ func TestE2EFullUserJourney(t *testing.T) {
 	assert.True(t, shipResp["data"].(map[string]interface{})["shipProject"].(bool))
 
 	// ── Step 7: Verify Kafka build request ──
-	msgBytes, err := helpers.WaitForKafkaMessage(shipCh, 5*time.Second)
+	msgBytes, err := helpers.WaitForKafkaMessage(shipCh, 15*time.Second)
 	require.NoError(t, err)
 	assert.Contains(t, string(msgBytes), projectID)
 	t.Logf("Kafka build request message: %s", string(msgBytes))

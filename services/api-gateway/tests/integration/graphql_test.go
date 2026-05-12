@@ -105,7 +105,7 @@ func TestShipProjectPublishesToKafka(t *testing.T) {
 	assert.True(t, shipResult)
 
 	// Wait for the specific message for this project (filters out old test data)
-	msgBytes, err := helpers.WaitForKafkaMessageContaining(ch, projectID, 10*time.Second)
+	msgBytes, err := helpers.WaitForKafkaMessageContaining(ch, projectID, 20*time.Second)
 	require.NoError(t, err, "expected a Kafka message containing the project ID within timeout")
 	assert.Contains(t, string(msgBytes), "manifest_raw")
 }

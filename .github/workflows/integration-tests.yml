@@ -91,6 +91,11 @@ jobs:
           docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests.dlq --partitions 1 --replication-factor 1 || true
           docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.status --partitions 1 --replication-factor 1 || true
 
+
+      - name: Verify Kafka topics
+        run: |
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --list
+          
       - name: Run API Gateway integration tests
         env:
           DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable
