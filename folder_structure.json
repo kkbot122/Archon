@@ -8,13 +8,25 @@
       "type": "folder",
       "children": [
         {
-          "name": "atomic-library",
+          "name": ".github",
           "type": "folder",
           "children": [
             {
-              "name": "bricks",
-              "type": "folder"
-            },
+              "name": "workflows",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "integration-tests.yml",
+                  "type": "file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "atomic-library",
+          "type": "folder",
+          "children": [
             {
               "name": "index.json",
               "type": "file"
@@ -34,10 +46,6 @@
                   "type": "file"
                 }
               ]
-            },
-            {
-              "name": "terraform",
-              "type": "folder"
             }
           ]
         },
@@ -58,10 +66,6 @@
                   "type": "file"
                 }
               ]
-            },
-            {
-              "name": "logger",
-              "type": "folder"
             },
             {
               "name": "pb",
@@ -90,10 +94,6 @@
                   "type": "file"
                 }
               ]
-            },
-            {
-              "name": "telemetry",
-              "type": "folder"
             },
             {
               "name": "go.mod",
@@ -222,10 +222,6 @@
                       "type": "file"
                     },
                     {
-                      "name": "servicer.py",
-                      "type": "file"
-                    },
-                    {
                       "name": "worker.py",
                       "type": "file"
                     }
@@ -254,6 +250,16 @@
                   "type": "folder",
                   "children": [
                     {
+                      "name": "integration",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "test_grpc_contract.py",
+                          "type": "file"
+                        }
+                      ]
+                    },
+                    {
                       "name": "test_graph_nodes.py",
                       "type": "file"
                     },
@@ -262,7 +268,7 @@
                       "type": "file"
                     },
                     {
-                      "name": "test_grpc_servicer.py",
+                      "name": "test_grpc_server.py",
                       "type": "file"
                     },
                     {
@@ -476,6 +482,48 @@
                   ]
                 },
                 {
+                  "name": "tests",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "integration",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "helpers",
+                          "type": "folder",
+                          "children": [
+                            {
+                              "name": "setup.go",
+                              "type": "file"
+                            }
+                          ]
+                        },
+                        {
+                          "name": "db_test.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "e2e_smoke_test.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "graphql_test.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "test_infra_test.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "websocket_test.go",
+                          "type": "file"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
                   "name": "go.mod",
                   "type": "file"
                 },
@@ -678,6 +726,36 @@
                   ]
                 },
                 {
+                  "name": "tests",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "integration",
+                      "type": "folder",
+                      "children": [
+                        {
+                          "name": "helpers",
+                          "type": "folder",
+                          "children": [
+                            {
+                              "name": "setup.go",
+                              "type": "file"
+                            }
+                          ]
+                        },
+                        {
+                          "name": "kafka_pipeline_test.go",
+                          "type": "file"
+                        },
+                        {
+                          "name": "shadow_builder_test.go",
+                          "type": "file"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
                   "name": "workspace",
                   "type": "folder",
                   "children": [
@@ -735,7 +813,7 @@
     }
   ],
   "metadata": {
-    "generated": "2026-05-11T18:28:50.288Z",
+    "generated": "2026-05-12T19:25:02.285Z",
     "generator": "FileTree Pro Extension",
     "version": "0.2.0",
     "showIcons": false,

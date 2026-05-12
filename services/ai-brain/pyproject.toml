@@ -3,7 +3,13 @@ name = "archon-ai-brain"
 version = "0.1.0"
 description = "Reasoning engine for the Archon platform"
 authors = ["Your Name <you@example.com>"]
-packages = [{include = "*", from = "src"}]
+packages = [
+    { include = "grpc_server" },
+    { include = "brain" },
+    { include = "proto" },
+    { include = "validators" },
+    { include = "cmd" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.11" # Change to your local Python version if different

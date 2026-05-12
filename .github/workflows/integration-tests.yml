@@ -52,7 +52,6 @@ jobs:
         run: |
           pip install poetry
           cd services/ai-brain
-          mkdir -p src
           poetry install
 
       # ---------- Protobuf generation (ensure stubs are fresh) ----------
