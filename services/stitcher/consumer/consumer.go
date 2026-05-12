@@ -34,6 +34,7 @@ func New(brokers []string, groupID string, topics []string, handler *Handler) *C
 		GroupTopics:    topics, // subscribe to all given topics
 		CommitInterval: 0,      // manual commits only
 		MaxBytes:       10e6,   // 10 MB
+		StartOffset:    kafka.LastOffset,
 	})
 
 	// Retry writer publishes to the primary topic (the first in the list)

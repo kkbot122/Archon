@@ -106,9 +106,7 @@ jobs:
 
       - name: Reset Stitcher Kafka topics
         run: |
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic build.requests || true
-          sleep 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests --partitions 1 --replication-factor 1
           docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.retry --partitions 1 --replication-factor 1
           docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.dlq --partitions 1 --replication-factor 1
 
