@@ -84,18 +84,18 @@ jobs:
           cd services/ai-brain
           poetry run pytest tests/integration/ -v
 
-      - name: Create Kafka topics (build.requests, retry, DLQ, status)
+      - name: Create Kafka topics
         run: |
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests --partitions 1 --replication-factor 1 || true
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests.retry --partitions 1 --replication-factor 1 || true
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests.dlq --partitions 1 --replication-factor 1 || true
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.status --partitions 1 --replication-factor 1 || true
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.retry --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.dlq --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.status --partitions 1 --replication-factor 1
 
 
       - name: Verify Kafka topics
         run: |
           docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --list
-          
+
       - name: Run API Gateway integration tests
         env:
           DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable

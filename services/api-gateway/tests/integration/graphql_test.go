@@ -91,6 +91,7 @@ func TestShipProjectPublishesToKafka(t *testing.T) {
 
 	// Setup Kafka consumer for build.requests
 	ch, _ := helpers.SetupKafkaConsumerFromLatest(t, "build.requests")
+	time.Sleep(1 * time.Second)
 
 	// Ship the project
 	shipMutation := `mutation($projectId: ID!) { shipProject(projectId: $projectId) }`

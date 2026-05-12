@@ -65,6 +65,7 @@ func TestE2EFullUserJourney(t *testing.T) {
 
 	// ── Step 6: Ship project ──
 	shipCh, _ := helpers.SetupKafkaConsumerFromLatest(t, "build.requests")
+	time.Sleep(1 * time.Second)
 
 	shipMutation := `mutation($pid: ID!) { shipProject(projectId: $pid) }`
 	shipResp, err := helpers.MakeGraphQLRequest(t, shipMutation, map[string]interface{}{
