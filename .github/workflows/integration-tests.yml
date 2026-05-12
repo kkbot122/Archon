@@ -11,10 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
-    services:
-      # We manage our own Docker Compose instead of using GitHub service containers
-      # to ensure exact replica of local setup.
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
