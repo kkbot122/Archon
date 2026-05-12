@@ -84,6 +84,13 @@ jobs:
           cd services/ai-brain
           poetry run pytest tests/integration/ -v
 
+      - name: Create Kafka topics (build.requests, retry, DLQ, status)
+        run: |
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests --partitions 1 --replication-factor 1 || true
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests.retry --partitions 1 --replication-factor 1 || true
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests.dlq --partitions 1 --replication-factor 1 || true
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.status --partitions 1 --replication-factor 1 || true
+
       - name: Run API Gateway integration tests
         env:
           DATABASE_URL: postgres://archon_user:archon_password@localhost:5433/archon_db?sslmode=disable
@@ -92,12 +99,19 @@ jobs:
           REDIS_ADDR: redis://localhost:6379/0
           KAFKA_BROKER: localhost:9092
         run: |
-          # Start the API Gateway in the background
           cd services/api-gateway
           go run ./cmd/server/main.go &
-          sleep 5
-          # Run integration tests
+          GATEWAY_PID=$!
+          # Wait until :4000 is listening
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:4000 >/dev/null 2>&1; then
+              echo "Gateway is up"
+              break
+            fi
+            sleep 1
+          done
           go test -tags=integration -v ./tests/integration/
+          kill $GATEWAY_PID 2>/dev/null || true
 
       - name: Run Stitcher integration tests
         env:
