@@ -113,3 +113,17 @@ func EnsureTopic(t *testing.T, topic string) {
 		t.Logf("ensure topic %s: %s (this is usually harmless)", topic, string(out))
 	}
 }
+
+// NewConsumerFromLatest creates a reader that only sees messages published after the consumer is running.
+func NewConsumerFromLatest(t *testing.T, topic, groupID string) *kafka.Reader {
+	t.Helper()
+	r := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:     []string{"localhost:9092"},
+		Topic:       topic,
+		GroupID:     groupID,
+		StartOffset: kafka.LastOffset,
+		MaxWait:     1 * time.Second,
+	})
+	t.Cleanup(func() { r.Close() })
+	return r
+}

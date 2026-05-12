@@ -19,7 +19,8 @@ import (
 	"github.com/kisna/archon/services/stitcher/tests/integration/helpers"
 )
 
-// testOrchestrator is a controllable orchestrator for testing the consumer.
+// testOrchestrator ......................................................
+
 type testOrchestrator struct {
 	processFunc func(ctx context.Context, projectID, versionHash, manifestRaw string) error
 	done        chan struct{}
@@ -41,11 +42,12 @@ func (o *testOrchestrator) ProcessBuild(ctx context.Context, projectID, versionH
 	return err
 }
 
-// ------------------------------------------------------------------
-// Test: Successful build
-// ------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// Tests
+// ----------------------------------------------------------------------
+
 func TestStitcherBuildSuccess(t *testing.T) {
-	helpers.EnsureTopic(t, "build.requests")                    // idempotent, safe in CI
+	helpers.EnsureTopic(t, "build.requests")
 	projectID := uuid.New().String()
 	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
 		return nil
@@ -58,10 +60,13 @@ func TestStitcherBuildSuccess(t *testing.T) {
 		[]string{"build.requests"},
 		handler,
 	)
+	defer c.Close()
 
 	ctx := context.Background()
 	go c.Start(ctx)
-	defer c.Close()
+
+	// Give consumer a moment to join the group
+	time.Sleep(1 * time.Second)
 
 	producer := helpers.NewProducer(t, "build.requests")
 	err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
@@ -79,9 +84,6 @@ func TestStitcherBuildSuccess(t *testing.T) {
 	}
 }
 
-// ------------------------------------------------------------------
-// Test: Transient failure → retry → success
-// ------------------------------------------------------------------
 func TestStitcherRetry(t *testing.T) {
 	helpers.EnsureTopic(t, "build.requests")
 	projectID := uuid.New().String()
@@ -101,10 +103,11 @@ func TestStitcherRetry(t *testing.T) {
 		[]string{"build.requests", "build.requests.retry"},
 		handler,
 	)
+	defer c.Close()
 
 	ctx := context.Background()
 	go c.Start(ctx)
-	defer c.Close()
+	time.Sleep(1 * time.Second)
 
 	producer := helpers.NewProducer(t, "build.requests")
 	err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
@@ -123,9 +126,6 @@ func TestStitcherRetry(t *testing.T) {
 	}
 }
 
-// ------------------------------------------------------------------
-// Test: Max retries → DLQ
-// ------------------------------------------------------------------
 func TestStitcherDeadLetterQueue(t *testing.T) {
 	helpers.EnsureTopic(t, "build.requests")
 	projectID := uuid.New().String()
@@ -140,10 +140,11 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
 		[]string{"build.requests", "build.requests.retry"},
 		handler,
 	)
+	defer c.Close()
 
 	ctx := context.Background()
 	go c.Start(ctx)
-	defer c.Close()
+	time.Sleep(1 * time.Second)
 
 	producer := helpers.NewProducer(t, "build.requests")
 	err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
@@ -154,7 +155,8 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	dlqReader := helpers.NewConsumer(t, "build.requests.dlq", "test-dlq-reader-"+uuid.New().String())
+	// Use a latest‑offset consumer so we only see the DLQ message for THIS test
+	dlqReader := helpers.NewConsumerFromLatest(t, "build.requests.dlq", "test-dlq-reader-"+uuid.New().String())
 	msg, err := helpers.WaitForMessage(t, dlqReader, 30*time.Second)
 	require.NoError(t, err)
 
@@ -164,9 +166,6 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
 	assert.Equal(t, projectID, event.ProjectID)
 }
 
-// ------------------------------------------------------------------
-// Test: Invalid event is rejected immediately
-// ------------------------------------------------------------------
 func TestStitcherInvalidEvent(t *testing.T) {
 	helpers.EnsureTopic(t, "build.requests")
 	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
@@ -180,10 +179,11 @@ func TestStitcherInvalidEvent(t *testing.T) {
 		[]string{"build.requests"},
 		handler,
 	)
+	defer c.Close()
 
 	ctx := context.Background()
 	go c.Start(ctx)
-	defer c.Close()
+	time.Sleep(1 * time.Second)
 
 	producer := helpers.NewProducer(t, "build.requests")
 	err := producer.WriteMessages(context.Background(), kafka.Message{
