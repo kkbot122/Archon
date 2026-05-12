@@ -67,8 +67,24 @@ def _load_atomic_library() -> dict:
 ATOMIC_LIBRARY = _load_atomic_library()
 
 # Initialize LLM client once
-_llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), temperature=0)
-_structured_llm = _llm.with_structured_output(AIResponse)
+if os.getenv("GEMINI_MODEL", "") == "mock":
+    # Mock for integration tests – returns a fixed valid response
+    from langchain_core.runnables import RunnableLambda
+
+    _structured_llm = RunnableLambda(lambda _: AIResponse(
+        is_valid=True,
+        ai_reasoning="Mock: Added postgres_db node.",
+        updated_manifest=ProjectManifest(
+            metadata=Metadata(project_name="MockProject", target_cloud="aws", schema_version="1.0"),
+            nodes=[ArchitectureNode(id="mock_node", type="postgres_db", version="15", config={"port": "5432"})],
+            connections=[],
+            feature_flags=[]
+        )
+    ))
+    _llm = None  # not used
+else:
+    _llm = ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), temperature=0)
+    _structured_llm = _llm.with_structured_output(AIResponse)
 
 # =================================================================
 # 3. LangGraph State Management
