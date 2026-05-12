@@ -159,7 +159,3 @@ The integration suite covers 8 layers:
 | **Total** | | **30** |
 
 All tests pass with a mock LLM (set `GEMINI_MODEL=mock` before starting the AI Brain), ensuring no real API calls during CI.
-
----
-
-Now your README shows live build status and tells contributors exactly how to replicate the full test suite locally. Need anything else?
