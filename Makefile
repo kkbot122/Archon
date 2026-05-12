@@ -3,8 +3,8 @@
 # Generate gRPC code for both Go and Python
 proto:
 	@echo "Generating Go & Python Protobufs..."
-	protoc --go_out=./internal/pb --go_opt=paths=source_relative \
-	       --go-grpc_out=./internal/pb --go-grpc_opt=paths=source_relative \
+	protoc --go_out=./internal/pb --go_opt=module=github.com/kisna/archon/internal/pb \
+	       --go-grpc_out=./internal/pb --go-grpc_opt=module=github.com/kisna/archon/internal/pb \
 	       proto/manifest.proto
 	cd services/ai-brain && \
 	poetry run python -m grpc_tools.protoc -I../../proto \

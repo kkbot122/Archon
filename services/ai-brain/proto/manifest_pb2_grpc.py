@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import manifest_pb2 as manifest__pb2
+import manifest_pb2 as manifest__pb2
 
 GRPC_GENERATED_VERSION = '1.80.0'
 GRPC_VERSION = grpc.__version__

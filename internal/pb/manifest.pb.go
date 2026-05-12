@@ -9,6 +9,8 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -26,6 +28,7 @@ type Metadata struct {
 	ProjectName   string                 `protobuf:"bytes,1,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 	TargetCloud   string                 `protobuf:"bytes,2,opt,name=target_cloud,json=targetCloud,proto3" json:"target_cloud,omitempty"`       // e.g., "AWS", "Vercel", "GCP"
 	SchemaVersion string                 `protobuf:"bytes,3,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"` // Crucial for backwards compatibility
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -81,12 +84,19 @@ func (x *Metadata) GetSchemaVersion() string {
 	return ""
 }
 
+func (x *Metadata) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
 type ArchitectureNode struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                                                   // e.g., "auth_service"
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`                                                                               // e.g., "clerk", "postgres", "redis"
-	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                                                                         // e.g., "1.2.0"
-	Config        map[string]string      `protobuf:"bytes,4,rep,name=config,proto3" json:"config,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Key-value pairs for env vars or settings
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // e.g., "auth_service"
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`       // e.g., "clerk", "postgres", "redis"
+	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"` // e.g., "1.2.0"
+	Config        *structpb.Struct       `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`   // Key-value pairs for env vars or settings
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -142,7 +152,7 @@ func (x *ArchitectureNode) GetVersion() string {
 	return ""
 }
 
-func (x *ArchitectureNode) GetConfig() map[string]string {
+func (x *ArchitectureNode) GetConfig() *structpb.Struct {
 	if x != nil {
 		return x.Config
 	}
@@ -285,6 +295,7 @@ type RefineManifestRequest struct {
 	UserId          string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`             // For Auth/Audit logging
 	UserPrompt      string                 `protobuf:"bytes,3,opt,name=user_prompt,json=userPrompt,proto3" json:"user_prompt,omitempty"` // e.g., "Swap my DB to MongoDB"
 	CurrentManifest *ProjectManifest       `protobuf:"bytes,4,opt,name=current_manifest,json=currentManifest,proto3" json:"current_manifest,omitempty"`
+	ProjectId       string                 `protobuf:"bytes,5,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -345,6 +356,13 @@ func (x *RefineManifestRequest) GetCurrentManifest() *ProjectManifest {
 		return x.CurrentManifest
 	}
 	return nil
+}
+
+func (x *RefineManifestRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
 }
 
 // The response sent from Python AI Brain -> Go Gateway
@@ -420,19 +438,18 @@ var File_proto_manifest_proto protoreflect.FileDescriptor
 
 const file_proto_manifest_proto_rawDesc = "" +
 	"\n" +
-	"\x14proto/manifest.proto\x12\x12archon.manifest.v1\"w\n" +
+	"\x14proto/manifest.proto\x12\x12archon.manifest.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb2\x01\n" +
 	"\bMetadata\x12!\n" +
 	"\fproject_name\x18\x01 \x01(\tR\vprojectName\x12!\n" +
 	"\ftarget_cloud\x18\x02 \x01(\tR\vtargetCloud\x12%\n" +
-	"\x0eschema_version\x18\x03 \x01(\tR\rschemaVersion\"\xd5\x01\n" +
+	"\x0eschema_version\x18\x03 \x01(\tR\rschemaVersion\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x81\x01\n" +
 	"\x10ArchitectureNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\x12H\n" +
-	"\x06config\x18\x04 \x03(\v20.archon.manifest.v1.ArchitectureNode.ConfigEntryR\x06config\x1a9\n" +
-	"\vConfigEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"b\n" +
+	"\aversion\x18\x03 \x01(\tR\aversion\x12/\n" +
+	"\x06config\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06config\"b\n" +
 	"\n" +
 	"Connection\x12\x1b\n" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12\x1b\n" +
@@ -442,13 +459,15 @@ const file_proto_manifest_proto_rawDesc = "" +
 	"\bmetadata\x18\x01 \x01(\v2\x1c.archon.manifest.v1.MetadataR\bmetadata\x12:\n" +
 	"\x05nodes\x18\x02 \x03(\v2$.archon.manifest.v1.ArchitectureNodeR\x05nodes\x12@\n" +
 	"\vconnections\x18\x03 \x03(\v2\x1e.archon.manifest.v1.ConnectionR\vconnections\x12#\n" +
-	"\rfeature_flags\x18\x04 \x03(\tR\ffeatureFlags\"\xbc\x01\n" +
+	"\rfeature_flags\x18\x04 \x03(\tR\ffeatureFlags\"\xdb\x01\n" +
 	"\x15RefineManifestRequest\x12\x19\n" +
 	"\btrace_id\x18\x01 \x01(\tR\atraceId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1f\n" +
 	"\vuser_prompt\x18\x03 \x01(\tR\n" +
 	"userPrompt\x12N\n" +
-	"\x10current_manifest\x18\x04 \x01(\v2#.archon.manifest.v1.ProjectManifestR\x0fcurrentManifest\"\xc1\x01\n" +
+	"\x10current_manifest\x18\x04 \x01(\v2#.archon.manifest.v1.ProjectManifestR\x0fcurrentManifest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x05 \x01(\tR\tprojectId\"\xc1\x01\n" +
 	"\x16RefineManifestResponse\x12\x19\n" +
 	"\btrace_id\x18\x01 \x01(\tR\atraceId\x12\x19\n" +
 	"\bis_valid\x18\x02 \x01(\bR\aisValid\x12!\n" +
@@ -469,7 +488,7 @@ func file_proto_manifest_proto_rawDescGZIP() []byte {
 	return file_proto_manifest_proto_rawDescData
 }
 
-var file_proto_manifest_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_proto_manifest_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_manifest_proto_goTypes = []any{
 	(*Metadata)(nil),               // 0: archon.manifest.v1.Metadata
 	(*ArchitectureNode)(nil),       // 1: archon.manifest.v1.ArchitectureNode
@@ -477,22 +496,24 @@ var file_proto_manifest_proto_goTypes = []any{
 	(*ProjectManifest)(nil),        // 3: archon.manifest.v1.ProjectManifest
 	(*RefineManifestRequest)(nil),  // 4: archon.manifest.v1.RefineManifestRequest
 	(*RefineManifestResponse)(nil), // 5: archon.manifest.v1.RefineManifestResponse
-	nil,                            // 6: archon.manifest.v1.ArchitectureNode.ConfigEntry
+	(*timestamppb.Timestamp)(nil),  // 6: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),        // 7: google.protobuf.Struct
 }
 var file_proto_manifest_proto_depIdxs = []int32{
-	6, // 0: archon.manifest.v1.ArchitectureNode.config:type_name -> archon.manifest.v1.ArchitectureNode.ConfigEntry
-	0, // 1: archon.manifest.v1.ProjectManifest.metadata:type_name -> archon.manifest.v1.Metadata
-	1, // 2: archon.manifest.v1.ProjectManifest.nodes:type_name -> archon.manifest.v1.ArchitectureNode
-	2, // 3: archon.manifest.v1.ProjectManifest.connections:type_name -> archon.manifest.v1.Connection
-	3, // 4: archon.manifest.v1.RefineManifestRequest.current_manifest:type_name -> archon.manifest.v1.ProjectManifest
-	3, // 5: archon.manifest.v1.RefineManifestResponse.updated_manifest:type_name -> archon.manifest.v1.ProjectManifest
-	4, // 6: archon.manifest.v1.ArchitectBrain.RefineManifest:input_type -> archon.manifest.v1.RefineManifestRequest
-	5, // 7: archon.manifest.v1.ArchitectBrain.RefineManifest:output_type -> archon.manifest.v1.RefineManifestResponse
-	7, // [7:8] is the sub-list for method output_type
-	6, // [6:7] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	6, // 0: archon.manifest.v1.Metadata.created_at:type_name -> google.protobuf.Timestamp
+	7, // 1: archon.manifest.v1.ArchitectureNode.config:type_name -> google.protobuf.Struct
+	0, // 2: archon.manifest.v1.ProjectManifest.metadata:type_name -> archon.manifest.v1.Metadata
+	1, // 3: archon.manifest.v1.ProjectManifest.nodes:type_name -> archon.manifest.v1.ArchitectureNode
+	2, // 4: archon.manifest.v1.ProjectManifest.connections:type_name -> archon.manifest.v1.Connection
+	3, // 5: archon.manifest.v1.RefineManifestRequest.current_manifest:type_name -> archon.manifest.v1.ProjectManifest
+	3, // 6: archon.manifest.v1.RefineManifestResponse.updated_manifest:type_name -> archon.manifest.v1.ProjectManifest
+	4, // 7: archon.manifest.v1.ArchitectBrain.RefineManifest:input_type -> archon.manifest.v1.RefineManifestRequest
+	5, // 8: archon.manifest.v1.ArchitectBrain.RefineManifest:output_type -> archon.manifest.v1.RefineManifestResponse
+	8, // [8:9] is the sub-list for method output_type
+	7, // [7:8] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_proto_manifest_proto_init() }
@@ -506,7 +527,7 @@ func file_proto_manifest_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_manifest_proto_rawDesc), len(file_proto_manifest_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
