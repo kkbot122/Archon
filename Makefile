@@ -7,7 +7,7 @@ proto:
 	       --go-grpc_out=./internal/pb --go-grpc_opt=paths=source_relative \
 	       proto/manifest.proto
 	cd services/ai-brain && \
-	poetry run python -m grpc_tools.protoc -I../../ \
+	poetry run python -m grpc_tools.protoc -I../../proto \
 	       --python_out=./proto \
 	       --grpc_python_out=./proto \
 	       ../../proto/manifest.proto

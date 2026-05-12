@@ -87,8 +87,7 @@ class GraphState(TypedDict):
 # =================================================================
 
 redis_addr = os.getenv("REDIS_ADDR", "redis://localhost:6379/0")
-redis_host, redis_port = redis_addr.split(":", 1)
-rdb = redis.Redis(host=redis_host, port=int(redis_port), decode_responses=True)
+rdb = redis.Redis.from_url(redis_addr, decode_responses=True)
 
 # =================================================================
 # 5. Graph Nodes
