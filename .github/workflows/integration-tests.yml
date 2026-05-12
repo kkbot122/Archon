@@ -18,7 +18,7 @@ jobs:
       # ---------- Infrastructure via Docker Compose ----------
       - name: Start Docker Compose
         run: |
-          docker-compose up -d
+          docker compose up -d
           # Wait for health checks
           for i in {1..30}; do
             if docker-compose ps | grep -q "healthy"; then
@@ -112,4 +112,4 @@ jobs:
       # ---------- Cleanup ----------
       - name: Stop Docker Compose
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
