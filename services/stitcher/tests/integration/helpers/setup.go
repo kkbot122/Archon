@@ -99,3 +99,17 @@ func CleanTopic(t *testing.T, container, topic string) {
         "--partitions", "1", "--replication-factor", "1")
     time.Sleep(500 * time.Millisecond) // allow topic to become available
 }
+
+// EnsureTopic creates the given Kafka topic if it doesn't exist.
+func EnsureTopic(t *testing.T, topic string) {
+	t.Helper()
+	// Use docker exec to run kafka-topics – ignore errors if already exists
+	cmd := exec.Command("docker", "exec", "-i", "archon-kafka",
+		"kafka-topics", "--bootstrap-server", "localhost:9092",
+		"--create", "--if-not-exists", "--topic", topic,
+		"--partitions", "1", "--replication-factor", "1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("ensure topic %s: %s (this is usually harmless)", topic, string(out))
+	}
+}

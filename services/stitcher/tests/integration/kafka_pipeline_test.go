@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
@@ -22,7 +22,7 @@ import (
 // testOrchestrator is a controllable orchestrator for testing the consumer.
 type testOrchestrator struct {
 	processFunc func(ctx context.Context, projectID, versionHash, manifestRaw string) error
-	done        chan struct{} // closed when a build succeeds
+	done        chan struct{}
 	once        sync.Once
 }
 
@@ -34,18 +34,18 @@ func newTestOrchestrator(fn func(ctx context.Context, projectID, versionHash, ma
 }
 
 func (o *testOrchestrator) ProcessBuild(ctx context.Context, projectID, versionHash, manifestRaw string) error {
-    err := o.processFunc(ctx, projectID, versionHash, manifestRaw)
-    if err == nil {
-        o.once.Do(func() { close(o.done) })   // safe even across multiple successes
-    }
-    return err
+	err := o.processFunc(ctx, projectID, versionHash, manifestRaw)
+	if err == nil {
+		o.once.Do(func() { close(o.done) })
+	}
+	return err
 }
 
 // ------------------------------------------------------------------
-// Test: Successful build – consumer picks message and calls orchestrator
+// Test: Successful build
 // ------------------------------------------------------------------
 func TestStitcherBuildSuccess(t *testing.T) {
-	helpers.CleanTopic(t, "archon-kafka", "build.requests")
+	helpers.EnsureTopic(t, "build.requests")                    // idempotent, safe in CI
 	projectID := uuid.New().String()
 	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
 		return nil
@@ -74,17 +74,16 @@ func TestStitcherBuildSuccess(t *testing.T) {
 
 	select {
 	case <-orch.done:
-		// success
 	case <-time.After(10 * time.Second):
 		t.Fatal("orchestrator was not called within timeout")
 	}
 }
 
 // ------------------------------------------------------------------
-// Test: Transient failure – retries and eventually succeeds
+// Test: Transient failure → retry → success
 // ------------------------------------------------------------------
 func TestStitcherRetry(t *testing.T) {
-	helpers.CleanTopic(t, "archon-kafka", "build.requests")
+	helpers.EnsureTopic(t, "build.requests")
 	projectID := uuid.New().String()
 	attempts := 0
 	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
@@ -125,10 +124,10 @@ func TestStitcherRetry(t *testing.T) {
 }
 
 // ------------------------------------------------------------------
-// Test: Max retries exceeded – message moves to DLQ
+// Test: Max retries → DLQ
 // ------------------------------------------------------------------
 func TestStitcherDeadLetterQueue(t *testing.T) {
-	helpers.CleanTopic(t, "archon-kafka", "build.requests")
+	helpers.EnsureTopic(t, "build.requests")
 	projectID := uuid.New().String()
 	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
 		return fmt.Errorf("permanent failure")
@@ -166,10 +165,10 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
 }
 
 // ------------------------------------------------------------------
-// Test: Invalid event (missing project_id) is rejected immediately
+// Test: Invalid event is rejected immediately
 // ------------------------------------------------------------------
 func TestStitcherInvalidEvent(t *testing.T) {
-	helpers.CleanTopic(t, "archon-kafka", "build.requests")
+	helpers.EnsureTopic(t, "build.requests")
 	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
 		return fmt.Errorf("should not be called")
 	})
@@ -196,6 +195,5 @@ func TestStitcherInvalidEvent(t *testing.T) {
 	case <-orch.done:
 		t.Fatal("orchestrator was called for an invalid event")
 	case <-time.After(2 * time.Second):
-		// expected – not called
 	}
 }
