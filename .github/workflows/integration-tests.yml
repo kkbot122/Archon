@@ -19,7 +19,6 @@ jobs:
       - name: Start Docker Compose
         run: |
           docker compose up -d
-          # Wait for health checks
           for i in {1..30}; do
             if docker compose ps | grep -q "healthy"; then
               echo "All services healthy"
@@ -27,6 +26,14 @@ jobs:
             fi
             sleep 2
           done
+
+      # ---------- Create all required Kafka topics (once) ----------
+      - name: Create Kafka topics
+        run: |
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.retry --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.dlq --partitions 1 --replication-factor 1
+          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.status --partitions 1 --replication-factor 1
 
       # ---------- Go setup ----------
       - name: Set up Go
@@ -52,9 +59,10 @@ jobs:
         run: |
           pip install poetry
           cd services/ai-brain
+          mkdir -p src          # satisfy pyproject.toml source layout
           poetry install
 
-      # ---------- Protobuf generation (ensure stubs are fresh) ----------
+      # ---------- Protobuf generation ----------
       - name: Install protoc
         run: sudo apt-get install -y protobuf-compiler
 
@@ -72,32 +80,15 @@ jobs:
       - name: Start AI Brain (mock)
         run: |
           cd services/ai-brain
-          export GEMINI_MODEL=mock
-          export REDIS_URL=redis://localhost:6379/0
-          export ATOMIC_LIBRARY_PATH=../../atomic-library/index.json
+          GEMINI_MODEL=mock REDIS_URL=redis://localhost:6379/0 ATOMIC_LIBRARY_PATH=../../atomic-library/index.json \
           poetry run python -m grpc_server.server &
-          sleep 3  # give it time to boot
+          sleep 3
 
       # ---------- Run integration tests ----------
-      - name: Run AI Brain integration tests
+      - name: AI Brain integration tests
         run: |
           cd services/ai-brain
           poetry run pytest tests/integration/ -v
-
-      - name: Clean Kafka topics
-        run: |
-          # Delete & recreate to guarantee empty state
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic build.requests || true
-          sleep 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests --partitions 1 --replication-factor 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.retry --partitions 1 --replication-factor 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.dlq --partitions 1 --replication-factor 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.status --partitions 1 --replication-factor 1
-
-
-      - name: Verify Kafka topics
-        run: |
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --list
 
       - name: Run API Gateway integration tests
         env:
@@ -110,7 +101,6 @@ jobs:
           cd services/api-gateway
           go run ./cmd/server/main.go &
           GATEWAY_PID=$!
-          # Wait until :4000 is listening
           for i in $(seq 1 30); do
             if curl -s http://localhost:4000 >/dev/null 2>&1; then
               echo "Gateway is up"
@@ -121,15 +111,6 @@ jobs:
           go test -tags=integration -v ./tests/integration/
           kill $GATEWAY_PID 2>/dev/null || true
 
-      - name: Reset Stitcher Kafka topics
-        run: |
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --delete --topic build.requests || true
-          sleep 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --topic build.requests --partitions 1 --replication-factor 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.retry --partitions 1 --replication-factor 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.requests.dlq --partitions 1 --replication-factor 1
-          docker exec -i archon-kafka kafka-topics --bootstrap-server localhost:9092 --create --if-not-exists --topic build.status --partitions 1 --replication-factor 1
-
       - name: Run Stitcher integration tests
         env:
           KAFKA_BROKER: localhost:9092
@@ -138,8 +119,6 @@ jobs:
           OTEL_EXPORTER_OTLP_ENDPOINT: localhost:4317
         run: |
           cd services/stitcher
-          # The tests will start their own consumer, so we don't run the worker.
-          # Use -p=1 to avoid parallel Kafka consumer conflicts.
           go test -tags=integration -v -p=1 ./tests/integration/
 
       # ---------- Cleanup ----------
