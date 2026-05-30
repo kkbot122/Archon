@@ -45,7 +45,7 @@ if len(topics) > 1 {
 	// Retry writer publishes to the primary topic (the first in the list)
 	retryWriter := &kafka.Writer{
 		Addr:     kafka.TCP(brokers...),
-		Topic:    topics[0],
+		Topic:    retryTopic,
 		Balancer: &kafka.LeastBytes{},
 	}
 
