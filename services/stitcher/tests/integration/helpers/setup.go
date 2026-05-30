@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 	"os/exec"
+	"strings"
+	"fmt"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -126,4 +128,25 @@ func NewConsumerFromLatest(t *testing.T, topic, groupID string) *kafka.Reader {
 	})
 	t.Cleanup(func() { r.Close() })
 	return r
+}
+
+// WaitForMessageContaining reads messages until one contains substr or timeout expires.
+func WaitForMessageContaining(t *testing.T, r *kafka.Reader, substr string, timeout time.Duration) (kafka.Message, error) {
+    t.Helper()
+    deadline := time.Now().Add(timeout)
+    for {
+        remaining := time.Until(deadline)
+        if remaining <= 0 {
+            return kafka.Message{}, fmt.Errorf("timeout waiting for message containing %q", substr)
+        }
+        ctx, cancel := context.WithTimeout(context.Background(), remaining)
+        msg, err := r.ReadMessage(ctx)
+        cancel()
+        if err != nil {
+            return kafka.Message{}, err
+        }
+        if strings.Contains(string(msg.Value), substr) {
+            return msg, nil
+        }
+    }
 }

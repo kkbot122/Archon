@@ -131,7 +131,7 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
     helpers.EnsureTopic(t, "build.requests")
     helpers.EnsureTopic(t, "build.requests.retry")
     helpers.EnsureTopic(t, "build.requests.dlq")
-    
+
     projectID := uuid.New().String()
     orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
         return fmt.Errorf("permanent failure")
@@ -148,7 +148,7 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
 
     ctx := context.Background()
     go c.Start(ctx)
-    time.Sleep(2 * time.Second) // longer wait in CI
+    time.Sleep(2 * time.Second)
 
     producer := helpers.NewProducer(t, "build.requests")
     err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
@@ -160,10 +160,11 @@ func TestStitcherDeadLetterQueue(t *testing.T) {
     require.NoError(t, err)
 
     dlqReader := helpers.NewConsumerFromLatest(t, "build.requests.dlq", "test-dlq-reader-"+uuid.New().String())
-    msg, err := helpers.WaitForMessage(t, dlqReader, 40*time.Second)
+    
+    // Filter by projectID so leftover messages from prior tests don't cause false failures
+    msg, err := helpers.WaitForMessageContaining(t, dlqReader, projectID, 40*time.Second)
     require.NoError(t, err)
 
-    // DLQ publishes a BuildStatusEvent via PublishStatus, not BuildRequestedEvent
     var event publisher.BuildStatusEvent
     err = json.Unmarshal(msg.Value, &event)
     require.NoError(t, err)
