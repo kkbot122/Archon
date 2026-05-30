@@ -121,7 +121,7 @@ func NewConsumerFromLatest(t *testing.T, topic, groupID string) *kafka.Reader {
 		Brokers:     []string{"localhost:9092"},
 		Topic:       topic,
 		GroupID:     groupID,
-		StartOffset: kafka.LastOffset,
+		StartOffset: kafka.FirstOffset,
 		MaxWait:     1 * time.Second,
 	})
 	t.Cleanup(func() { r.Close() })

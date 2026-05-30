@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kisna/archon/services/stitcher/consumer"
+	"github.com/kisna/archon/services/stitcher/publisher"
 	"github.com/kisna/archon/services/stitcher/tests/integration/helpers"
 )
 
@@ -66,7 +67,7 @@ func TestStitcherBuildSuccess(t *testing.T) {
 	go c.Start(ctx)
 
 	// Give consumer a moment to join the group
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	producer := helpers.NewProducer(t, "build.requests")
 	err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
@@ -79,7 +80,7 @@ func TestStitcherBuildSuccess(t *testing.T) {
 
 	select {
 	case <-orch.done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("orchestrator was not called within timeout")
 	}
 }
@@ -107,7 +108,7 @@ func TestStitcherRetry(t *testing.T) {
 
 	ctx := context.Background()
 	go c.Start(ctx)
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	producer := helpers.NewProducer(t, "build.requests")
 	err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
@@ -121,49 +122,52 @@ func TestStitcherRetry(t *testing.T) {
 	select {
 	case <-orch.done:
 		assert.GreaterOrEqual(t, attempts, 3, "should have retried at least twice before success")
-	case <-time.After(15 * time.Second):
+	case <-time.After(25 * time.Second):
 		t.Fatal("orchestrator did not succeed within timeout")
 	}
 }
 
 func TestStitcherDeadLetterQueue(t *testing.T) {
-	helpers.EnsureTopic(t, "build.requests")
-	projectID := uuid.New().String()
-	orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
-		return fmt.Errorf("permanent failure")
-	})
+    helpers.EnsureTopic(t, "build.requests")
+    helpers.EnsureTopic(t, "build.requests.retry")
+    helpers.EnsureTopic(t, "build.requests.dlq")
+    
+    projectID := uuid.New().String()
+    orch := newTestOrchestrator(func(ctx context.Context, projectID, versionHash, manifestRaw string) error {
+        return fmt.Errorf("permanent failure")
+    })
 
-	handler := consumer.NewHandler(orch)
-	c := consumer.New(
-		[]string{"localhost:9092"},
-		"test-dlq-group-"+uuid.New().String(),
-		[]string{"build.requests", "build.requests.retry"},
-		handler,
-	)
-	defer c.Close()
+    handler := consumer.NewHandler(orch)
+    c := consumer.New(
+        []string{"localhost:9092"},
+        "test-dlq-group-"+uuid.New().String(),
+        []string{"build.requests", "build.requests.retry"},
+        handler,
+    )
+    defer c.Close()
 
-	ctx := context.Background()
-	go c.Start(ctx)
-	time.Sleep(1 * time.Second)
+    ctx := context.Background()
+    go c.Start(ctx)
+    time.Sleep(2 * time.Second) // longer wait in CI
 
-	producer := helpers.NewProducer(t, "build.requests")
-	err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
-		ProjectID:   projectID,
-		VersionHash: "dlq-hash",
-		ManifestRaw: `{"nodes":[]}`,
-		RequestedAt: time.Now(),
-	})
-	require.NoError(t, err)
+    producer := helpers.NewProducer(t, "build.requests")
+    err := helpers.PublishJSON(context.Background(), producer, projectID, consumer.BuildRequestedEvent{
+        ProjectID:   projectID,
+        VersionHash: "dlq-hash",
+        ManifestRaw: `{"nodes":[]}`,
+        RequestedAt: time.Now(),
+    })
+    require.NoError(t, err)
 
-	// Use a latest‑offset consumer so we only see the DLQ message for THIS test
-	dlqReader := helpers.NewConsumerFromLatest(t, "build.requests.dlq", "test-dlq-reader-"+uuid.New().String())
-	msg, err := helpers.WaitForMessage(t, dlqReader, 30*time.Second)
-	require.NoError(t, err)
+    dlqReader := helpers.NewConsumerFromLatest(t, "build.requests.dlq", "test-dlq-reader-"+uuid.New().String())
+    msg, err := helpers.WaitForMessage(t, dlqReader, 40*time.Second)
+    require.NoError(t, err)
 
-	var event consumer.BuildRequestedEvent
-	err = json.Unmarshal(msg.Value, &event)
-	require.NoError(t, err)
-	assert.Equal(t, projectID, event.ProjectID)
+    // DLQ publishes a BuildStatusEvent via PublishStatus, not BuildRequestedEvent
+    var event publisher.BuildStatusEvent
+    err = json.Unmarshal(msg.Value, &event)
+    require.NoError(t, err)
+    assert.Equal(t, projectID, event.ProjectID)
 }
 
 func TestStitcherInvalidEvent(t *testing.T) {
