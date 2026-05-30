@@ -4,6 +4,7 @@ go 1.26.2
 
 require (
 	github.com/docker/docker v24.0.9+incompatible
+	github.com/kisna/archon/internal v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.35.1
 	github.com/segmentio/kafka-go v0.4.51
@@ -61,3 +62,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )
+
+replace github.com/kisna/archon/internal => ../../internal

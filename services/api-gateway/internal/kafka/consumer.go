@@ -43,8 +43,9 @@ func (c *GatewayConsumer) HandleMessage(ctx context.Context, payload []byte) err
 	return c.redisPub.PublishBuildUpdate(ctx, projectID, string(payload))
 }
 
-// Start kicks off the consumer goroutines
-func (c *GatewayConsumer) Start(broker string, topics []string) {
+// Start kicks off the consumer goroutines. It respects ctx cancellation so
+// the readers stop cleanly when the application shuts down.
+func (c *GatewayConsumer) Start(ctx context.Context, broker string, topics []string) {
 	for _, topic := range topics {
 		r := kafka.NewReader(kafka.ReaderConfig{
 			Brokers: []string{broker},
@@ -53,17 +54,23 @@ func (c *GatewayConsumer) Start(broker string, topics []string) {
 		})
 		c.readers = append(c.readers, r)
 
-		// Run each topic consumer in its own goroutine
+		// Run each topic consumer in its own goroutine.
 		go func(reader *kafka.Reader) {
 			log.Printf("🎧 API Gateway listening to Kafka topic: %s", reader.Config().Topic)
 			for {
-				msg, err := reader.ReadMessage(context.Background())
+				// ReadMessage blocks until a message arrives or ctx is cancelled.
+				msg, err := reader.ReadMessage(ctx)
 				if err != nil {
+					// A cancelled context means a clean shutdown — not an error worth logging.
+					if ctx.Err() != nil {
+						log.Printf("🛑 Kafka consumer shutting down for topic: %s", reader.Config().Topic)
+						return
+					}
 					log.Printf("⚠️ Kafka read error on topic %s: %v", reader.Config().Topic, err)
 					continue
 				}
 
-				if err := c.HandleMessage(context.Background(), msg.Value); err != nil {
+				if err := c.HandleMessage(ctx, msg.Value); err != nil {
 					log.Printf("⚠️ Failed to handle Kafka message from %s: %v", reader.Config().Topic, err)
 				}
 			}

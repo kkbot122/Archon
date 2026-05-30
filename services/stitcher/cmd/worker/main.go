@@ -19,6 +19,7 @@ import (
 	"github.com/kisna/archon/services/stitcher/publisher"
 	"github.com/kisna/archon/services/stitcher/stitcher"
 	"github.com/kisna/archon/services/stitcher/workspace"
+	internalKafka "github.com/kisna/archon/internal/kafka"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -130,7 +131,7 @@ func main() {
 	resolver := library.NewResolver(registry)
 	engine := stitcher.NewEngine(resolver)
 
-	pub := publisher.New(cfg.KafkaBrokers, "build.status")
+	pub := publisher.New(cfg.KafkaBrokers, internalKafka.TopicBuildStatus)
 
 	pipeline := &Pipeline{
 		engine:  engine,
@@ -142,11 +143,12 @@ func main() {
 
 	brokers := strings.Split(cfg.KafkaBrokers, ",")
 
-	// UPDATED: Pass main + retry topics as a slice
+	// Pass main + retry topics as a slice, using shared constants so they
+	// can never drift out of sync with what the API Gateway publishes to.
 	kafkaConsumer := consumer.New(
 		brokers,
 		cfg.ConsumerGroup,
-		[]string{"build.requests", "build.requests.retry"},
+		[]string{internalKafka.TopicBuildRequests, internalKafka.TopicBuildRetry},
 		handler,
 	)
 

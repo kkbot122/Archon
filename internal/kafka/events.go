@@ -3,11 +3,14 @@ package kafka
 
 import "time"
 
-// Topic names
+// Topic names — single source of truth for all services.
+// Both the API Gateway and the Stitcher must import these constants;
+// never use raw string literals for topic names anywhere else.
 const (
-	TopicBuildRequested = "architect.build.requested"
-	TopicBuildComplete  = "architect.build.complete"
-	TopicBuildFailed    = "architect.build.failed"
+	TopicBuildRequests = "build.requests"
+	TopicBuildRetry    = "build.requests.retry"
+	TopicBuildDLQ      = "build.requests.dlq"
+	TopicBuildStatus   = "build.status"
 )
 
 // BuildRequestedEvent is the payload dropped into Kafka when a user clicks "Ship"

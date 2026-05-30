@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
+	internalKafka "github.com/kisna/archon/internal/kafka"
 	"github.com/kisna/archon/services/api-gateway/internal/kafka"
 	"github.com/kisna/archon/services/api-gateway/internal/db"
 	"github.com/kisna/archon/services/api-gateway/internal/graphql"
@@ -85,9 +86,16 @@ func main() {
 	go redisManager.ListenForManifestUpdates(ctx, hub)
 
 	// 4. Initialize Kafka Producer (Event Bus)
-	kafkaProducer := kafka.NewProducer(kafkaBroker, "build.requests")
+	kafkaProducer := kafka.NewProducer(kafkaBroker, internalKafka.TopicBuildRequests)
 	defer kafkaProducer.Close()
 	log.Println("✅ Connected to Kafka Producer")
+
+	// 4b. Initialize Kafka Consumer — bridges build.status events → Redis → WebSockets.
+	// This is what closes the loop: Stitcher publishes a result, the frontend sees it.
+	gatewayConsumer := kafka.NewGatewayConsumer(redisManager)
+	gatewayConsumer.Start(ctx, kafkaBroker, []string{internalKafka.TopicBuildStatus})
+	defer gatewayConsumer.Close()
+	log.Println("✅ Kafka Consumer started (build.status → Redis → WebSocket)")
 
 	// 5. Initialize gRPC Client to AI Brain
 	aiClient, err := grpcclient.NewClient(aiBrainTarget)

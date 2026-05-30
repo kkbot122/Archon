@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/segmentio/kafka-go"
 
+	internalKafka "github.com/kisna/archon/internal/kafka"
 	"github.com/kisna/archon/services/stitcher/publisher"
 )
 
@@ -42,7 +43,9 @@ if len(topics) > 1 {
     retryTopic = topics[1]
 }
 
-	// Retry writer publishes to the primary topic (the first in the list)
+	// Retry writer publishes failed messages to the retry topic (topics[1])
+	// so they are re-processed after a backoff, rather than re-entering the
+	// main topic and jumping the queue ahead of fresh requests.
 	retryWriter := &kafka.Writer{
 		Addr:     kafka.TCP(brokers...),
 		Topic:    retryTopic,
@@ -50,7 +53,7 @@ if len(topics) > 1 {
 	}
 
 	// DLQ publisher reuses the existing status publisher but with a dedicated topic
-	dlqPub := publisher.New(strings.Join(brokers, ","), "build.requests.dlq")
+	dlqPub := publisher.New(strings.Join(brokers, ","), internalKafka.TopicBuildDLQ)
 
 	return &Consumer{
 		reader:       reader,
