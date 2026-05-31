@@ -12,6 +12,7 @@ import (
 // The event payload we send to the Stitcher
 type BuildRequestedEvent struct {
 	ProjectID   string    `json:"project_id"`
+	UserID      string    `json:"user_id"`
 	VersionHash string    `json:"version_hash"`
 	ManifestRaw string    `json:"manifest_raw"`
 	RequestedAt time.Time `json:"requested_at"`

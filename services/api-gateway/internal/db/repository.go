@@ -24,7 +24,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	}
 }
 
-func (r *Repository) CreateProject(ctx context.Context, userID uuid.UUID, name string) (*Project, error) {
+func (r *Repository) CreateProject(ctx context.Context, userID string, name string) (*Project, error) {
 	p, err := r.Queries.CreateProject(ctx, CreateProjectParams{
 		UserID: userID,
 		Name:   name,
@@ -55,7 +55,7 @@ func (r *Repository) GetLatestManifest(ctx context.Context, projectID uuid.UUID)
 }
 
 // CreateProjectWithManifest uses sqlc's WithTx to execute safely within a transaction
-func (r *Repository) CreateProjectWithManifest(ctx context.Context, userID uuid.UUID, name string, manifestData []byte) (*Project, error) {
+func (r *Repository) CreateProjectWithManifest(ctx context.Context, userID string, name string, manifestData []byte) (*Project, error) {
 	tx, err := r.Pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
@@ -85,5 +85,27 @@ func (r *Repository) CreateProjectWithManifest(ctx context.Context, userID uuid.
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	return &p, nil
+}
+
+func (r *Repository) GetProjectsByUser(ctx context.Context, userID string) ([]Project, error) {
+	return r.Queries.GetProjectsByUser(ctx, userID)
+}
+
+// AssertProjectOwner returns the project if it belongs to userID,
+// or an ErrForbidden sentinel if the row exists but is owned by someone else.
+var ErrForbidden = errors.New("forbidden")
+
+func (r *Repository) AssertProjectOwner(ctx context.Context, projectID uuid.UUID, userID string) (*Project, error) {
+	p, err := r.Queries.GetProjectByIDAndUser(ctx, GetProjectByIDAndUserParams{
+		ID:     projectID,
+		UserID: userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrForbidden
+		}
+		return nil, fmt.Errorf("ownership check: %w", err)
+	}
 	return &p, nil
 }

@@ -16,6 +16,7 @@ const (
 // BuildRequestedEvent is the payload dropped into Kafka when a user clicks "Ship"
 type BuildRequestedEvent struct {
 	ProjectID   string    `json:"project_id"`
+	UserID      string    `json:"user_id"`
 	VersionHash string    `json:"version_hash"`
 	ManifestRaw string    `json:"manifest_raw"` // The JSON blueprint
 	RequestedAt time.Time `json:"requested_at"`

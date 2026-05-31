@@ -19,7 +19,7 @@ type Manifest struct {
 
 type Project struct {
 	ID        uuid.UUID        `json:"id"`
-	UserID    uuid.UUID        `json:"user_id"`
+	UserID    string           `json:"user_id"`
 	Name      string           `json:"name"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
 	UpdatedAt pgtype.Timestamp `json:"updated_at"`

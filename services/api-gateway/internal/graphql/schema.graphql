@@ -3,6 +3,7 @@
 type Project {
   id: ID!
   name: String!
+  createdAt: String! 
 }
 
 type ManifestRecord {
@@ -21,6 +22,7 @@ type RefineResponse {
 type Query {
   # Fetches the current architecture state for the UI Canvas
   getLatestManifest(projectId: ID!): ManifestRecord
+  projects: [Project!]!
 }
 
 type Mutation {

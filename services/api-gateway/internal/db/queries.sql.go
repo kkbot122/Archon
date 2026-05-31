@@ -18,8 +18,8 @@ RETURNING id, user_id, name, created_at, updated_at
 `
 
 type CreateProjectParams struct {
-	UserID uuid.UUID `json:"user_id"`
-	Name   string    `json:"name"`
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
@@ -54,6 +54,64 @@ func (q *Queries) GetLatestManifest(ctx context.Context, projectID uuid.UUID) (M
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getProjectByIDAndUser = `-- name: GetProjectByIDAndUser :one
+SELECT id, user_id, name, created_at, updated_at
+FROM projects
+WHERE id = $1 AND user_id = $2
+`
+
+type GetProjectByIDAndUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID string    `json:"user_id"`
+}
+
+// Used by resolvers to enforce ownership. Returns pgx.ErrNoRows if not owned.
+func (q *Queries) GetProjectByIDAndUser(ctx context.Context, arg GetProjectByIDAndUserParams) (Project, error) {
+	row := q.db.QueryRow(ctx, getProjectByIDAndUser, arg.ID, arg.UserID)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProjectsByUser = `-- name: GetProjectsByUser :many
+SELECT id, user_id, name, created_at, updated_at
+FROM projects
+WHERE user_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetProjectsByUser(ctx context.Context, userID string) ([]Project, error) {
+	rows, err := q.db.Query(ctx, getProjectsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const saveManifest = `-- name: SaveManifest :exec
