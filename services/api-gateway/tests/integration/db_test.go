@@ -75,7 +75,7 @@ func TestGetLatestManifestReturnsMostRecent(t *testing.T) {
 func TestGetLatestManifestReturnsNilForNewProject(t *testing.T) {
 	repo, _ := helpers.SetupTestDB(t)
 
-	m, err := repo.GetLatestManifest(context.Background(), uuid.NewString())
+	m, err := repo.GetLatestManifest(context.Background(), uuid.New())
 	assert.NoError(t, err)
 	assert.Nil(t, m, "should be nil for a project with no manifests")
 }
