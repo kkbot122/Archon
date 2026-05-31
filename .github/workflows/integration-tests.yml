@@ -95,6 +95,14 @@ jobs:
           ARCHON_JWT_AUDIENCE: archon
         run: |
           cd services/api-gateway
+          
+          # --- Start Mock JWKS Server ---
+          mkdir -p .well-known
+          echo '{"keys": [{"kty": "RSA", "kid": "test-key-1", "alg": "RS256", "n": "dummy", "e": "AQAB"}]}' > .well-known/jwks.json
+          python3 -m http.server 8080 &
+          JWKS_PID=$!
+          # ------------------------------
+
           go run ./cmd/server/main.go &
           GATEWAY_PID=$!
           for i in $(seq 1 30); do
@@ -106,6 +114,7 @@ jobs:
           done
           go test -tags=integration -v ./tests/integration/
           kill $GATEWAY_PID 2>/dev/null || true
+          kill $JWKS_PID 2>/dev/null || true
 
       - name: Reset Stitcher Kafka topics
         run: |

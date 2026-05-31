@@ -50,7 +50,7 @@ func TestGetLatestManifestReturnsMostRecent(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
 	helpers.EnsureDummyUser(t, pool)
 
-	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	userID := "11111111-1111-1111-1111-111111111111"
 	proj, err := repo.CreateProject(context.Background(), userID, "TestProject_LatestManifest")
 	require.NoError(t, err)
 
@@ -75,7 +75,7 @@ func TestGetLatestManifestReturnsMostRecent(t *testing.T) {
 func TestGetLatestManifestReturnsNilForNewProject(t *testing.T) {
 	repo, _ := helpers.SetupTestDB(t)
 
-	m, err := repo.GetLatestManifest(context.Background(), uuid.New())
+	m, err := repo.GetLatestManifest(context.Background(), uuid.NewString())
 	assert.NoError(t, err)
 	assert.Nil(t, m, "should be nil for a project with no manifests")
 }
@@ -84,7 +84,7 @@ func TestCreateProjectWithManifestIsAtomic(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
 	helpers.EnsureDummyUser(t, pool)
 
-	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	userID := "11111111-1111-1111-1111-111111111111"
 	name := "TestProject_Atomic"
 	manifestData := []byte(`{"metadata":{"project_name":"` + name + `"}}`)
 
@@ -105,7 +105,7 @@ func TestCreateProjectWithManifestIsAtomic(t *testing.T) {
 
 	tx, err := pool.Begin(context.Background())
 	require.NoError(t, err)
-	projID := uuid.New()
+	projID := uuid.NewString()
 	_, err = tx.Exec(context.Background(),
 		"INSERT INTO projects (id, user_id, name) VALUES ($1, $2, $3)",
 		projID, userID, "RollbackTest")
