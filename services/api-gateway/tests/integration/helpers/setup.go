@@ -117,18 +117,18 @@ func WaitForKafkaMessage(ch chan []byte, timeout time.Duration) ([]byte, error) 
 
 // WaitForKafkaMessageContaining waits for a message that contains substr.
 func WaitForKafkaMessageContaining(ch chan []byte, substr string, timeout time.Duration) ([]byte, error) {
-    deadline := time.After(timeout)
-    for {
-        select {
-        case msg := <-ch:
-            if strings.Contains(string(msg), substr) {
-                return msg, nil
-            }
-            // Discard messages that don't match
-        case <-deadline:
-            return nil, fmt.Errorf("timeout waiting for Kafka message containing %q", substr)
-        }
-    }
+	deadline := time.After(timeout)
+	for {
+		select {
+		case msg := <-ch:
+			if strings.Contains(string(msg), substr) {
+				return msg, nil
+			}
+			// Discard messages that don't match
+		case <-deadline:
+			return nil, fmt.Errorf("timeout waiting for Kafka message containing %q", substr)
+		}
+	}
 }
 
 // SetupWebSocketClient connects to the WebSocket endpoint for a given project.
@@ -143,7 +143,6 @@ func SetupWebSocketClient(t *testing.T, projectID string) *websocket.Conn {
 	})
 	return conn
 }
-
 
 // testPrivateKey loads the RSA private key from TEST_JWT_PRIVATE_KEY (PEM),
 // or generates a throwaway key as fallback (only usable in tests that don't
@@ -177,7 +176,9 @@ func TestAuthToken(t *testing.T) string {
 	kid := GetEnv("TEST_JWT_KID", "test-key-1")
 	issuer := GetEnv("ARCHON_JWT_ISSUER", "https://test.issuer")
 	audience := GetEnv("ARCHON_JWT_AUDIENCE", "archon")
-	tok, err := middleware.SignTestToken(key, kid, "integration-test-user", issuer, audience, time.Now().Add(5*time.Minute))
+	
+	// FIX: Use the valid UUID for the dummy user instead of "integration-test-user"
+	tok, err := middleware.SignTestToken(key, kid, "11111111-1111-1111-1111-111111111111", issuer, audience, time.Now().Add(5*time.Minute))
 	if err != nil {
 		t.Fatalf("failed to sign test token: %v", err)
 	}
