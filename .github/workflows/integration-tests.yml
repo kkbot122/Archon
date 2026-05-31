@@ -90,6 +90,9 @@ jobs:
           AI_BRAIN_TARGET: localhost:50051
           REDIS_ADDR: localhost:6379
           KAFKA_BROKER: localhost:9092
+          ARCHON_JWKS_URL: http://localhost:8080/.well-known/jwks.json
+          ARCHON_JWT_ISSUER: https://test.issuer
+          ARCHON_JWT_AUDIENCE: archon
         run: |
           cd services/api-gateway
           go run ./cmd/server/main.go &

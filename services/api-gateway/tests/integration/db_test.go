@@ -19,7 +19,7 @@ func TestCreateProjectInsertsRow(t *testing.T) {
 	helpers.EnsureDummyUser(t, pool)
 
 	name := "TestProject_Create"
-	p, err := repo.CreateProject(context.Background(), uuid.MustParse("11111111-1111-1111-1111-111111111111"), name)
+	p, err := repo.CreateProject(context.Background(), "11111111-1111-1111-1111-111111111111", name)
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, p.ID, "project ID should be a valid UUID")
 	assert.Equal(t, name, p.Name)
@@ -29,7 +29,7 @@ func TestSaveManifestInsertsRow(t *testing.T) {
 	repo, pool := helpers.SetupTestDB(t)
 	helpers.EnsureDummyUser(t, pool)
 
-	userID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	userID := "11111111-1111-1111-1111-111111111111"
 	proj, err := repo.CreateProject(context.Background(), userID, "TestProject_SaveManifest")
 	require.NoError(t, err)
 

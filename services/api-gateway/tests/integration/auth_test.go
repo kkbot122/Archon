@@ -1,7 +1,6 @@
 package integration_test
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
@@ -10,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
