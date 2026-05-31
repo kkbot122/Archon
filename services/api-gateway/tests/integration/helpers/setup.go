@@ -3,7 +3,11 @@ package helpers
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,6 +21,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 	"github.com/kisna/archon/services/api-gateway/internal/db"
+	"github.com/kisna/archon/services/api-gateway/internal/middleware"
 	"github.com/stretchr/testify/require"
 )
 
@@ -139,6 +144,50 @@ func SetupWebSocketClient(t *testing.T, projectID string) *websocket.Conn {
 	return conn
 }
 
+
+// testPrivateKey loads the RSA private key from TEST_JWT_PRIVATE_KEY (PEM),
+// or generates a throwaway key as fallback (only usable in tests that don't
+// hit the live gateway, since the gateway won't have this key in its JWKS).
+func testPrivateKey(t *testing.T) *rsa.PrivateKey {
+	t.Helper()
+	pemData := os.Getenv("TEST_JWT_PRIVATE_KEY")
+	if pemData != "" {
+		block, _ := pem.Decode([]byte(pemData))
+		if block == nil {
+			t.Fatal("TEST_JWT_PRIVATE_KEY is set but could not be PEM-decoded")
+		}
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			t.Fatalf("failed to parse TEST_JWT_PRIVATE_KEY: %v", err)
+		}
+		rsaKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			t.Fatal("TEST_JWT_PRIVATE_KEY is not an RSA key")
+		}
+		return rsaKey
+	}
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate fallback RSA key: %v", err)
+	}
+	return k
+}
+
+// TestAuthToken returns a signed JWT that matches the JWKS the gateway was
+// booted with (key from TEST_JWT_PRIVATE_KEY, kid from TEST_JWT_KID).
+func TestAuthToken(t *testing.T) string {
+	t.Helper()
+	key := testPrivateKey(t)
+	kid := GetEnv("TEST_JWT_KID", "test-key-1")
+	issuer := GetEnv("ARCHON_JWT_ISSUER", "https://test.issuer")
+	audience := GetEnv("ARCHON_JWT_AUDIENCE", "archon")
+	tok, err := middleware.SignTestToken(key, kid, "integration-test-user", issuer, audience, time.Now().Add(5*time.Minute))
+	if err != nil {
+		t.Fatalf("failed to sign test token: %v", err)
+	}
+	return tok
+}
+
 // MakeGraphQLRequest performs a GraphQL query against the API Gateway.
 func MakeGraphQLRequest(t *testing.T, query string, variables map[string]interface{}) (map[string]interface{}, error) {
 	url := GetEnv("TEST_GRAPHQL_URL", "http://localhost:4000/query")
@@ -151,7 +200,7 @@ func MakeGraphQLRequest(t *testing.T, query string, variables map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer valid-mock-token")
+	req.Header.Set("Authorization", "Bearer "+TestAuthToken(t))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)

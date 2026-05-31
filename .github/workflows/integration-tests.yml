@@ -96,9 +96,40 @@ jobs:
         run: |
           cd services/api-gateway
           
-          # --- Start Mock JWKS Server ---
-          mkdir -p .well-known
-          echo '{"keys": [{"kty": "RSA", "kid": "test-key-1", "alg": "RS256", "n": "dummy", "e": "AQAB"}]}' > .well-known/jwks.json
+          # --- Generate Matching Keypair for Tests & Gateway ---
+          cat << 'EOF' > gen_keys.go
+          package main
+          import (
+              "crypto/rand"
+              "crypto/rsa"
+              "crypto/x509"
+              "encoding/base64"
+              "encoding/json"
+              "encoding/pem"
+              "math/big"
+              "os"
+          )
+          func main() {
+              priv, _ := rsa.GenerateKey(rand.Reader, 2048)
+              pemData := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+              os.WriteFile("private.pem", pemData, 0600)
+              
+              pub := priv.Public().(*rsa.PublicKey)
+              jwks := map[string]any{"keys": []map[string]any{{"kty": "RSA", "kid": "test-key-1", "alg": "RS256", 
+                  "n": base64.RawURLEncoding.EncodeToString(pub.N.Bytes()), 
+                  "e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pub.E)).Bytes())}}}
+              jwksData, _ := json.Marshal(jwks)
+              
+              os.MkdirAll(".well-known", 0755)
+              os.WriteFile(".well-known/jwks.json", jwksData, 0644)
+          }
+          EOF
+          go run gen_keys.go
+          
+          # Pass the newly generated private key to setup.go via environment variable
+          export TEST_JWT_PRIVATE_KEY=$(cat private.pem)
+
+          # --- Start Mock JWKS Server on port 8888 ---
           python3 -m http.server 8888 &
           JWKS_PID=$!
           # ------------------------------
@@ -112,7 +143,9 @@ jobs:
             fi
             sleep 1
           done
+          
           go test -tags=integration -v ./tests/integration/
+          
           kill $GATEWAY_PID 2>/dev/null || true
           kill $JWKS_PID 2>/dev/null || true
 
