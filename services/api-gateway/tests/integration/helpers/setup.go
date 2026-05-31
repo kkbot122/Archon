@@ -156,15 +156,11 @@ func testPrivateKey(t *testing.T) *rsa.PrivateKey {
 		if block == nil {
 			t.Fatal("TEST_JWT_PRIVATE_KEY is set but could not be PEM-decoded")
 		}
-		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
 			t.Fatalf("failed to parse TEST_JWT_PRIVATE_KEY: %v", err)
 		}
-		rsaKey, ok := key.(*rsa.PrivateKey)
-		if !ok {
-			t.Fatal("TEST_JWT_PRIVATE_KEY is not an RSA key")
-		}
-		return rsaKey
+		return key
 	}
 	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
